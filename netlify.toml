@@ -1,0 +1,14 @@
+[[redirects]]
+  from = "/v4_6"
+  to = "/v4_6/"
+  status = 301
+
+[[redirects]]
+  from = "/v12_3"
+  to = "/v12_3/"
+  status = 301
+
+[[redirects]]
+  from = "/v13"
+  to = "/v13/"
+  status = 301

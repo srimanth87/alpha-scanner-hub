@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alpha Entry Scanner — Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080b0f;
+      --surface:   #0d1117;
+      --border:    #1c2533;
+      --cyan:      #00e5ff;
+      --orange:    #ff6b35;
+      --purple:    #a855f7;
+      --green:     #00ff88;
+      --muted:     #4a5568;
+      --text:      #c9d1d9;
+      --text-dim:  #6b7280;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.06) 2px,
+        rgba(0,0,0,0.06) 4px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    .wrapper {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 3rem 2rem 5rem;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 3rem;
+    }
+
+    .header .system-tag {
+      font-size: 0.7rem;
+      letter-spacing: 0.25em;
+      color: var(--cyan);
+      text-transform: uppercase;
+      margin-bottom: 0.5rem;
+      opacity: 0;
+      animation: fadeIn 0.5s ease 0.2s forwards;
+    }
+
+    .header h1 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: clamp(2rem, 5vw, 3.2rem);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #fff;
+      opacity: 0;
+      animation: fadeIn 0.5s ease 0.4s forwards;
+    }
+
+    .header h1 span { color: var(--cyan); text-shadow: 0 0 20px rgba(0,229,255,0.35); }
+
+    .header .subtitle {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      margin-top: 0.6rem;
+      opacity: 0;
+      animation: fadeIn 0.5s ease 0.6s forwards;
+    }
+
+    .statusbar {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 3rem;
+      opacity: 0;
+      animation: fadeIn 0.5s ease 0.8s forwards;
+    }
+
+    .status-item {
+      font-size: 0.65rem;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .status-item .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .cards {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .card {
+      position: relative;
+      width: 280px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1.75rem;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      transition: border-color 0.2s, transform 0.2s;
+      overflow: hidden;
+      opacity: 0;
+    }
+
+    .card:nth-child(1) { animation: slideUp 0.5s ease 1s forwards; }
+    .card:nth-child(2) { animation: slideUp 0.5s ease 1.15s forwards; }
+    .card:nth-child(3) { animation: slideUp 0.5s ease 1.3s forwards; }
+
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      transform: scaleX(0);
+      transform-origin: left;
+      transition: transform 0.3s ease;
+    }
+
+    .card.v46::before  { background: var(--cyan); }
+    .card.v123::before { background: var(--purple); }
+    .card.v13::before  { background: var(--orange); }
+
+    .card.v46:hover  { border-color: var(--cyan);   box-shadow: 0 0 20px rgba(0,229,255,0.25); transform: translateY(-3px); }
+    .card.v123:hover { border-color: var(--purple); box-shadow: 0 0 20px rgba(168,85,247,0.25); transform: translateY(-3px); }
+    .card.v13:hover  { border-color: var(--orange); box-shadow: 0 0 20px rgba(255,107,53,0.25); transform: translateY(-3px); }
+
+    .card:hover::before { transform: scaleX(1); }
+
+    .corner { position: absolute; width: 12px; height: 12px; }
+    .corner.tl { top: 6px; left: 6px; border-top: 1px solid; border-left: 1px solid; }
+    .corner.br { bottom: 6px; right: 6px; border-bottom: 1px solid; border-right: 1px solid; }
+
+    .card.v46  .corner { border-color: var(--cyan); }
+    .card.v123 .corner { border-color: var(--purple); }
+    .card.v13  .corner { border-color: var(--orange); }
+
+    .version-badge {
+      font-size: 0.58rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .version-badge::before {
+      content: '';
+      display: inline-block;
+      width: 20px; height: 1px;
+      background: currentColor;
+    }
+
+    .card.v46  .version-badge { color: var(--cyan); }
+    .card.v123 .version-badge { color: var(--purple); }
+    .card.v13  .version-badge { color: var(--orange); }
+
+    .card h2 {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      font-size: 1.5rem;
+      letter-spacing: 0.05em;
+      color: #fff;
+      margin-bottom: 0.4rem;
+    }
+
+    .tagline {
+      font-size: 0.62rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      line-height: 1.6;
+      margin-bottom: 1.25rem;
+    }
+
+    .features {
+      list-style: none;
+      font-size: 0.6rem;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      line-height: 1.9;
+      margin-bottom: 1.25rem;
+    }
+
+    .card.v46  .features li::before { content: '▸ '; color: var(--cyan); }
+    .card.v123 .features li::before { content: '▸ '; color: var(--purple); }
+    .card.v13  .features li::before { content: '▸ '; color: var(--orange); }
+
+    .launch-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.68rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+    }
+
+    .card.v46  .launch-btn { color: var(--cyan); }
+    .card.v123 .launch-btn { color: var(--purple); }
+    .card.v13  .launch-btn { color: var(--orange); }
+
+    .launch-btn .arrow { transition: transform 0.2s; }
+    .card:hover .launch-btn .arrow { transform: translateX(4px); }
+
+    .footer {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 0.58rem;
+      color: var(--muted);
+      letter-spacing: 0.12em;
+      opacity: 0;
+      animation: fadeIn 0.5s ease 1.6s forwards;
+      white-space: nowrap;
+    }
+
+    @keyframes fadeIn { to { opacity: 1; } }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.3; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <div class="header">
+      <div class="system-tag">// BREAKOUTHQ — SCANNER HUB</div>
+      <h1>ALPHA ENTRY <span>SCANNER</span></h1>
+      <div class="subtitle">SELECT VERSION TO LAUNCH &nbsp;·&nbsp; NDX100 DAY TRADING SUITE</div>
+    </div>
+
+    <div class="statusbar">
+      <div class="status-item"><span class="dot"></span> SYSTEM ONLINE</div>
+      <div class="status-item"><span class="dot"></span> NDX100 UNIVERSE LOADED</div>
+      <div class="status-item"><span class="dot"></span> TELEGRAM BOT READY</div>
+    </div>
+
+    <div class="cards">
+
+      <a class="card v46" href="/v4_6/">
+        <span class="corner tl"></span>
+        <span class="corner br"></span>
+        <div class="version-badge">VERSION 4.6 — LEGACY</div>
+        <h2>V4.6</h2>
+        <p class="tagline">STABLE LEGACY BUILD<br>DUAL SCORING · FULL ALERTS</p>
+        <ul class="features">
+          <li>C1 Momentum + C13 Trend Scoring</li>
+          <li>EMA / RSI / ATR / VWAP Indicators</li>
+          <li>Telegram Breakout Alerts</li>
+          <li>Pre-market + Intraday Modes</li>
+          <li>R:R Gating (1.5x min)</li>
+        </ul>
+        <div class="launch-btn">
+          <span>OPEN SCANNER</span>
+          <span class="arrow">→</span>
+        </div>
+      </a>
+
+      <a class="card v123" href="/v12_3/">
+        <span class="corner tl"></span>
+        <span class="corner br"></span>
+        <div class="version-badge">VERSION 12.3 — STABLE</div>
+        <h2>V12.3</h2>
+        <p class="tagline">MID-LINEAGE BUILD<br>MOMENTUM SNIPER · PRESET MODES</p>
+        <ul class="features">
+          <li>C13 Trend + C1 Momentum (A+)</li>
+          <li>VIX / SPY / QQQ Market Check</li>
+          <li>Momentum Sniper Mode</li>
+          <li>Pre-market Preset</li>
+          <li>Telegram Alerts + Alert Log</li>
+        </ul>
+        <div class="launch-btn">
+          <span>OPEN SCANNER</span>
+          <span class="arrow">→</span>
+        </div>
+      </a>
+
+      <a class="card v13" href="/v13/">
+        <span class="corner tl"></span>
+        <span class="corner br"></span>
+        <div class="version-badge">VERSION 13.22 — LATEST</div>
+        <h2>V13.22</h2>
+        <p class="tagline">CURRENT ACTIVE BUILD<br>GO/NO-GO · CUSTOM SCAN</p>
+        <ul class="features">
+          <li>SPY / QQQ / VIX Market Chips</li>
+          <li>GO / NO-GO Verdict Engine</li>
+          <li>Custom Scan Tab + Persistence</li>
+          <li>Verified NDX100 Ticker List</li>
+          <li>Version-tagged Telegram Alerts</li>
+        </ul>
+        <div class="launch-btn">
+          <span>OPEN SCANNER</span>
+          <span class="arrow">→</span>
+        </div>
+      </a>
+
+    </div>
+  </div>
+
+  <div class="footer">ALPHA ENTRY SCANNER HUB &nbsp;·&nbsp; FOR PERSONAL USE ONLY &nbsp;·&nbsp; NOT FINANCIAL ADVICE</div>
+</body>
+</html>

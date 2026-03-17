@@ -1,0 +1,2266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alpha Entry Scanner v13</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #080c10;
+    --bg-panel: #0d1117;
+    --bg-card: #111820;
+    --bg-card2: #151d26;
+    --border: #1e2d3d;
+    --border-bright: #2a4060;
+    --cyan: #00d4ff;
+    --cyan-dim: #00d4ff30;
+    --green: #00ff88;
+    --green-dim: #00ff8820;
+    --red: #ff4060;
+    --red-dim: #ff406020;
+    --gold: #ffd060;
+    --gold-dim: #ffd06020;
+    --orange: #ff8c00;
+    --text-primary: #e2eaf4;
+    --text-secondary: #6b8aab;
+    --text-dim: #3d5570;
+    --aplus: #00ff88;
+    --a: #00d4ff;
+    --b: #ffd060;
+    --watching: #ff8c00;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app { position: relative; z-index: 1; max-width: 1600px; margin: 0 auto; padding: 16px; }
+
+  /* ── HEADER ── */
+  .header {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--cyan);
+    margin-bottom: 14px;
+    position: relative;
+    overflow: visible;
+    gap: 0;
+  }
+  .header-row1 {
+    display: flex;
+    align-items: center;
+    padding: 8px 20px;
+    gap: 16px;
+  }
+  .header-row2 {
+    display: flex;
+    align-items: center;
+    padding: 5px 20px;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.2);
+  }
+  .header::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cyan), var(--green), var(--cyan));
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  .header-left { display: flex; align-items: center; gap: 16px; }
+  .logo { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; color: var(--cyan); letter-spacing: 3px; text-transform: uppercase; }
+  .version-badge { background: var(--cyan-dim); border: 1px solid var(--cyan); color: var(--cyan); font-size: 10px; padding: 2px 8px; letter-spacing: 2px; }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+
+  .market-status { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
+  .status-dot.closed { background: var(--red); box-shadow: 0 0 8px var(--red); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .clock { font-size: 14px; color: var(--cyan); font-weight: 600; letter-spacing: 2px; }
+
+  /* ── TIME PHASES ── */
+  .phases-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .phase {
+    padding: 10px 14px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+  .phase.active {
+    border-color: var(--cyan);
+    background: rgba(0,212,255,0.06);
+  }
+  .phase.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--cyan);
+  }
+  .phase-time { font-size: 11px; color: var(--cyan); font-weight: 600; margin-bottom: 2px; }
+  .phase-label { font-size: 12px; color: var(--text-primary); font-family: 'Rajdhani', sans-serif; font-weight: 600; letter-spacing: 1px; }
+  .phase-desc { font-size: 10px; color: var(--text-secondary); margin-top: 2px; }
+
+  /* ── MAIN LAYOUT ── */
+  .main-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+  }
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+  .panel-title {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  .panel-title span { color: var(--cyan); }
+  .panel-body { padding: 14px; }
+
+  /* ── SCANNER CONTROLS ── */
+  .input-group { margin-bottom: 12px; }
+  .input-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; margin-bottom: 4px; text-transform: uppercase; }
+  .input-row { display: flex; gap: 8px; }
+  input[type="text"], input[type="number"], select {
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 8px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--cyan); }
+  select option { background: var(--bg-deep); }
+
+  .btn {
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 2px;
+    padding: 8px 16px;
+    border: 1px solid;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-primary {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    color: var(--bg-deep);
+  }
+  .btn-primary:hover { background: transparent; color: var(--cyan); }
+  .btn-secondary {
+    background: transparent;
+    border-color: var(--border-bright);
+    color: var(--text-secondary);
+  }
+  .btn-secondary:hover { border-color: var(--cyan); color: var(--cyan); }
+  .btn-danger {
+    background: transparent;
+    border-color: var(--red);
+    color: var(--red);
+  }
+  .btn-danger:hover { background: var(--red-dim); }
+  .btn-green {
+    background: var(--green);
+    border-color: var(--green);
+    color: var(--bg-deep);
+  }
+  .btn-green:hover { background: transparent; color: var(--green); }
+
+  .btn-full { width: 100%; text-align: center; padding: 10px; }
+
+  /* ── SCORE BREAKDOWN ── */
+  .score-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .score-item:last-child { border-bottom: none; }
+  .score-item-label { color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+  .score-pts { color: var(--gold); font-weight: 600; }
+  .score-indicator { width: 6px; height: 6px; border-radius: 50%; background: var(--border); }
+  .score-indicator.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* ── WATCHLIST ── */
+  .watchlist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    margin-bottom: 6px;
+    background: var(--bg-card);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 11px;
+  }
+  .watchlist-item:hover { border-color: var(--cyan); background: var(--bg-card2); }
+  .watchlist-item.selected { border-color: var(--cyan); background: rgba(0,212,255,0.06); }
+  .wl-ticker { font-weight: 700; font-size: 13px; color: var(--text-primary); }
+  .wl-sector { color: var(--text-secondary); font-size: 10px; }
+  .wl-right { text-align: right; }
+
+  /* ── ALERTS TABLE ── */
+  .alerts-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .alerts-table th {
+    text-align: left;
+    padding: 8px 12px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    text-transform: uppercase;
+  }
+  .alerts-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .alerts-table tr:last-child td { border-bottom: none; }
+  .alerts-table tr { transition: background 0.15s; }
+  .alerts-table tr:hover td { background: var(--bg-card2); }
+
+  .grade-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 1px;
+  }
+  .grade-aplus { background: rgba(0,255,136,0.15); border: 1px solid var(--aplus); color: var(--aplus); }
+  .grade-a { background: rgba(0,212,255,0.15); border: 1px solid var(--a); color: var(--a); }
+  .grade-b { background: rgba(255,208,96,0.15); border: 1px solid var(--b); color: var(--b); }
+  .grade-watching { background: rgba(255,140,0,0.15); border: 1px solid var(--watching); color: var(--watching); }
+
+  .score-bar-container { display: flex; align-items: center; gap: 8px; }
+  .score-bar { height: 4px; background: var(--border); flex: 1; max-width: 60px; }
+  .score-bar-fill { height: 100%; transition: width 0.5s; }
+  .score-num { font-weight: 600; min-width: 20px; }
+
+  .ticker-cell { font-weight: 700; font-size: 13px; letter-spacing: 1px; }
+  .price-up { color: var(--green); }
+  .price-down { color: var(--red); }
+  .signal-tag {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    border: 1px solid;
+    margin-right: 3px;
+    letter-spacing: 0.5px;
+  }
+  .tag-breakout { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+  .tag-gap { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+  .tag-vol { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+  .tag-inst { border-color: #cc88ff; color: #cc88ff; background: rgba(204,136,255,0.1); }
+
+  /* ── SCORE METER ── */
+  .score-big-display {
+    text-align: center;
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .score-big-num {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 56px;
+    font-weight: 700;
+    line-height: 1;
+    transition: color 0.3s;
+  }
+  .score-big-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 2px; margin-top: 4px; }
+  .score-grade-large {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    margin-top: 8px;
+  }
+
+  /* ── STATS BAR ── */
+  .stats-bar {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .stat-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+  }
+  .stat-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+  .stat-value { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; color: var(--text-primary); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.cyan { color: var(--cyan); }
+  .stat-value.gold { color: var(--gold); }
+  .stat-value.red { color: var(--red); }
+
+  /* ── MONITOR CONTROLS ── */
+  .monitor-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .monitor-status { font-size: 11px; color: var(--text-secondary); flex: 1; }
+  .monitor-countdown { display: none; }
+  .mp-chip {
+    padding: 2px 7px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    white-space: nowrap;
+    cursor: default;
+  }
+
+  /* Progress bar */
+
+
+  /* ── SECTOR FILTER ── */
+  .sector-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sector-chip {
+    padding: 4px 10px;
+    border: 1px solid var(--border);
+    font-size: 10px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+  .sector-chip:hover { border-color: var(--cyan); color: var(--cyan); }
+  .sector-chip.active { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+
+  /* ── TELEGRAM CONFIG ── */
+  .tg-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .tg-status { display: flex; align-items: center; gap: 6px; font-size: 11px; padding: 8px 12px; border: 1px solid; }
+  .tg-status.connected { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+  .tg-status.disconnected { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+  /* ── ALERT FLASH ── */
+  @keyframes alertFlash {
+    0%,100% { background: var(--bg-card); }
+    50% { background: rgba(0,255,136,0.12); }
+  }
+  .alert-new { animation: alertFlash 0.8s ease 2; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg-deep); }
+  ::-webkit-scrollbar-thumb { background: var(--border-bright); }
+
+  .alerts-scroll { max-height: 420px; overflow-y: auto; }
+
+  /* empty state */
+  .empty-state { text-align: center; padding: 40px; color: var(--text-dim); font-size: 12px; }
+  .empty-state .icon { font-size: 32px; margin-bottom: 8px; opacity: 0.4; }
+
+  /* dev mode */
+  .dev-badge { background: var(--gold-dim); border: 1px solid var(--gold); color: var(--gold); font-size: 10px; padding: 2px 8px; letter-spacing: 1px; }
+
+  /* tabs */
+  .tab-nav { display: flex; border-bottom: 1px solid var(--border); }
+  .tab-btn {
+    padding: 8px 16px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    background: none;
+    border-top: none; border-left: none; border-right: none;
+    text-transform: uppercase;
+  }
+  .tab-btn.active { color: var(--cyan); border-bottom-color: var(--cyan); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  .rr-display { font-size: 11px; color: var(--text-secondary); padding: 6px 0; }
+  .rr-display span { color: var(--green); font-weight: 600; }
+
+  .time-warning {
+    display: none;
+    padding: 8px 14px;
+    background: rgba(255,64,96,0.1);
+    border: 1px solid var(--red);
+    color: var(--red);
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  .time-warning.show { display: block; }
+
+
+  /* ── HEADER CONTROLS ── */
+  .header-divider { width: 1px; height: 24px; background: var(--border); flex-shrink: 0; }
+  .header-control { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .header-control-label { font-size: 10px; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
+
+  /* Toggle switch */
+  .toggle-wrap { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  .toggle { position: relative; width: 32px; height: 16px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--border);
+    border-radius: 16px;
+    transition: 0.2s;
+  }
+  .toggle-slider:before {
+    content: '';
+    position: absolute;
+    width: 10px; height: 10px;
+    left: 3px; top: 3px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    transition: 0.2s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--cyan); }
+  .toggle input:checked + .toggle-slider:before { transform: translateX(16px); background: var(--bg-deep); }
+  .toggle-dev input:checked + .toggle-slider { background: var(--gold); }
+  .toggle-sound input:checked + .toggle-slider { background: var(--green); }
+
+  /* Header icon buttons */
+  .hdr-btn {
+    display: flex; align-items: center; gap: 5px;
+    padding: 5px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+    white-space: nowrap;
+    position: relative;
+  }
+  .hdr-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .hdr-btn.active { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
+  .hdr-btn .tg-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-dim);
+    display: inline-block;
+  }
+  .hdr-btn .tg-dot.on { background: var(--green); box-shadow: 0 0 5px var(--green); }
+
+  /* Dropdown modals */
+  .hdr-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: 300px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-bright);
+    border-top: 2px solid var(--cyan);
+    z-index: 999;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  }
+  .hdr-dropdown.open { display: block; }
+  .hdr-dropdown-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 12px; font-weight: 700;
+    letter-spacing: 2px; color: var(--text-secondary);
+  }
+  .hdr-dropdown-body { padding: 14px; }
+  .hdr-dropdown-close { cursor: pointer; color: var(--text-dim); font-size: 16px; line-height: 1; }
+  .hdr-dropdown-close:hover { color: var(--red); }
+
+  /* Telegram status bar */
+  .tg-status-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    font-size: 11px;
+    margin-top: 8px;
+  }
+  .tg-status-bar.connected { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+  .tg-status-bar.disconnected { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+  @keyframes rowIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+  .row-animate { animation: rowIn 0.3s ease; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="header">
+
+    <!-- ROW 1: Controls -->
+    <div class="header-row1">
+
+    <!-- Logo -->
+    <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+      <div class="logo">⬡ Alpha Entry</div>
+      <div class="version-badge">V13</div>
+    </div>
+
+    <div class="header-divider"></div>
+
+    <!-- DEV MODE toggle -->
+    <div class="header-control">
+      <div class="header-control-label">Dev Mode</div>
+      <label class="toggle-wrap toggle-dev">
+        <div class="toggle">
+          <input type="checkbox" id="devMode" onchange="toggleDevMode()">
+          <div class="toggle-slider"></div>
+        </div>
+      </label>
+    </div>
+
+    <div class="header-divider"></div>
+
+    <!-- Sound toggle -->
+    <div class="header-control">
+      <div class="header-control-label">🔔 Sound</div>
+      <label class="toggle-wrap toggle-sound">
+        <div class="toggle">
+          <input type="checkbox" id="soundMode" checked>
+          <div class="toggle-slider"></div>
+        </div>
+      </label>
+    </div>
+
+    <div class="header-divider"></div>
+
+    <!-- Telegram button + dropdown -->
+    <div style="position:relative">
+      <button class="hdr-btn" id="tgBtn" onclick="toggleDropdown('tgDropdown','tgBtn')">
+        <span class="tg-dot" id="tgDot"></span> TELEGRAM
+      </button>
+      <div class="hdr-dropdown" id="tgDropdown">
+        <div class="hdr-dropdown-header">
+          TELEGRAM ALERTS
+          <span class="hdr-dropdown-close" onclick="closeDropdown('tgDropdown','tgBtn')">✕</span>
+        </div>
+        <div class="hdr-dropdown-body">
+          <div class="input-group">
+            <div class="input-label">Bot Token</div>
+            <input type="text" id="tgToken" placeholder="bot123456:ABC-DEF..." style="font-size:11px">
+          </div>
+          <div class="input-group">
+            <div class="input-label">Chat ID</div>
+            <input type="text" id="tgChatId" placeholder="1026720092" value="1026720092">
+          </div>
+          <div class="input-group">
+            <div class="input-label">Send Alerts For</div>
+            <select id="tgAlertLevel">
+              <option value="14">A+ Only</option>
+              <option value="11" selected>A+ and A</option>
+              <option value="8">A+, A and B</option>
+              <option value="6">All Signals</option>
+            </select>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <button class="btn btn-secondary" onclick="testTelegram()" style="flex:1">TEST PING</button>
+            <button class="btn btn-primary" onclick="saveTelegram()" style="flex:1">SAVE</button>
+          </div>
+          <div id="tgStatus" class="tg-status-bar disconnected">● NOT CONFIGURED</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings button + dropdown -->
+    <div style="position:relative">
+      <button class="hdr-btn" id="settingsBtn" onclick="toggleDropdown('settingsDropdown','settingsBtn')">
+        ⚙ SETTINGS
+      </button>
+      <div class="hdr-dropdown" id="settingsDropdown">
+        <div class="hdr-dropdown-header">
+          SETTINGS
+          <span class="hdr-dropdown-close" onclick="closeDropdown('settingsDropdown','settingsBtn')">✕</span>
+        </div>
+        <div class="hdr-dropdown-body">
+          <div class="input-group">
+            <div class="input-label">Alert Threshold</div>
+            <select id="alertThreshold">
+              <option value="14">A+ Only (≥14)</option>
+              <option value="11" selected>A+ and A (≥11)</option>
+              <option value="8">A, B and Above (≥8)</option>
+              <option value="6">All Signals (≥6)</option>
+            </select>
+          </div>
+          <div class="input-group">
+            <div class="input-label">Trades Taken Today</div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="number" id="tradeCount" value="0" min="0" max="2" style="width:56px">
+              <button class="btn btn-secondary" onclick="incrementTrade()" style="flex:1">+1 TRADE</button>
+              <button class="btn btn-danger" onclick="resetTrades()">RESET</button>
+            </div>
+          </div>
+          <div class="input-group" style="margin-bottom:0">
+            <div class="input-label">Scan Interval (Auto Monitor)</div>
+            <select id="scanInterval">
+              <option value="60">1 minute</option>
+              <option value="120">2 minutes</option>
+              <option value="300" selected>5 minutes</option>
+              <option value="600">10 minutes</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spacer -->
+    <div style="flex:1"></div>
+
+    <!-- Market status + clock (stays in row 1, always visible) -->
+    <div style="display:flex;align-items:center;gap:14px;flex-shrink:0">
+      <div class="market-status">
+        <div class="status-dot" id="marketDot"></div>
+        <span id="marketLabel" style="font-size:11px">MARKET</span>
+      </div>
+      <div class="clock" id="clock">--:--:-- --</div>
+    </div>
+
+    </div><!-- end header-row1 -->
+
+    <!-- ROW 2: Market Pulse -->
+    <div class="header-row2" id="marketPulse">
+      <div id="mpSPY"  class="mp-chip">SPY —</div>
+      <div id="mpQQQ"  class="mp-chip">QQQ —</div>
+      <div id="mpVIX"  class="mp-chip">VIX —</div>
+      <div id="mpGONOGO" style="font-size:10px;font-weight:700;letter-spacing:1px;padding:2px 8px;border-radius:2px;border:1px solid var(--border)">—</div>
+      <div style="flex:1"></div>
+      <div id="mpRefreshTime" style="font-size:9px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace"></div>
+    </div>
+
+  </div>
+
+  <!-- TIME PHASES -->
+  <div class="phases-bar">
+    <div class="phase" id="phase1">
+      <div class="phase-time">8:30 AM</div>
+      <div class="phase-label">Pre-Market Scan</div>
+      <div class="phase-desc">Run scanner · Pick 5 stocks</div>
+    </div>
+    <div class="phase" id="phase2">
+      <div class="phase-time">9:35 AM</div>
+      <div class="phase-label">Long Confirmation</div>
+      <div class="phase-desc">Wait for long setup to confirm</div>
+    </div>
+    <div class="phase" id="phase3">
+      <div class="phase-time">10:00 AM</div>
+      <div class="phase-label">Primary Window</div>
+      <div class="phase-desc">Take 1–2 trades max</div>
+    </div>
+    <div class="phase" id="phase4">
+      <div class="phase-time">After 10:30</div>
+      <div class="phase-label">Pullback Only</div>
+      <div class="phase-desc">Pullback trades only · Reduce size</div>
+    </div>
+  </div>
+
+  <!-- STATS BAR -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="stat-label">A+ Alerts Today</div>
+      <div class="stat-value green" id="statAplus">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">A Alerts</div>
+      <div class="stat-value cyan" id="statA">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Watching</div>
+      <div class="stat-value gold" id="statWatch">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Scanned</div>
+      <div class="stat-value" id="statScanned">0</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Trades Taken</div>
+      <div class="stat-value" id="statTrades">0 <span style="font-size:14px;color:var(--text-secondary)">/ 2</span></div>
+    </div>
+  </div>
+
+  <!-- TIME WARNING -->
+  <div class="time-warning" id="timeWarning">
+    ⚠ After 10:30 AM — Pullback setups only. Reduce position size. No aggressive breakout entries.
+  </div>
+
+  <!-- MAIN GRID -->
+  <div class="main-grid">
+
+    <!-- LEFT: CONTROLS -->
+    <div>
+      <!-- Stock Analyzer Panel -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-header">
+          <div class="panel-title">STOCK <span>ANALYZER</span></div>
+          <div id="analyzerGrade" class="grade-badge grade-watching">—</div>
+        </div>
+        <div class="panel-body" style="padding:12px 14px">
+
+          <!-- Ticker Input -->
+          <div style="display:flex;gap:8px;margin-bottom:12px">
+            <input type="text" id="analyzerTicker" placeholder="Enter ticker... AAPL"
+              style="flex:1;font-size:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase"
+              onkeydown="if(event.key==='Enter') analyzeTicker()"
+              oninput="this.value=this.value.toUpperCase()">
+            <button class="btn btn-primary" id="analyzeBtn" onclick="analyzeTicker()" style="padding:8px 14px">GO</button>
+          </div>
+
+          <!-- Loading state -->
+          <div id="analyzerLoading" style="display:none;text-align:center;padding:20px;color:var(--text-dim);font-size:11px">
+            ⟳ Fetching live data...
+          </div>
+
+          <!-- Results -->
+          <div id="analyzerResults" style="display:none">
+
+            <!-- Verdict Banner -->
+            <div id="analyzerVerdict" style="padding:14px;text-align:center;border:1px solid;margin-bottom:12px">
+              <div id="verdictIcon" style="font-size:24px;margin-bottom:4px"></div>
+              <div id="verdictText" style="font-family:'Rajdhani',sans-serif;font-size:20px;font-weight:700;letter-spacing:2px"></div>
+              <div id="verdictSub" style="font-size:10px;margin-top:4px;letter-spacing:1px;opacity:0.8"></div>
+            </div>
+
+            <!-- Price + Score row -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+              <div style="background:var(--bg-deep);border:1px solid var(--border);padding:10px;text-align:center">
+                <div style="font-size:10px;color:var(--text-secondary);letter-spacing:1px;margin-bottom:2px">LIVE PRICE</div>
+                <div id="analyzerPrice" style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700;color:var(--cyan)">—</div>
+                <div id="analyzerChange" style="font-size:10px;margin-top:2px">—</div>
+              </div>
+              <div style="background:var(--bg-deep);border:1px solid var(--border);padding:10px;text-align:center">
+                <div style="font-size:10px;color:var(--text-secondary);letter-spacing:1px;margin-bottom:2px">A+ SCORE</div>
+                <div id="analyzerScore" style="font-family:'Rajdhani',sans-serif;font-size:22px;font-weight:700">—</div>
+                <div style="font-size:10px;color:var(--text-dim);margin-top:2px">out of 16</div>
+              </div>
+            </div>
+
+            <!-- Signal breakdown -->
+            <div id="analyzerSignals" style="margin-bottom:10px"></div>
+
+            <!-- Entry levels -->
+            <div id="analyzerLevels" style="background:var(--bg-deep);border:1px solid var(--border);padding:10px;margin-bottom:10px;font-size:11px"></div>
+
+            <!-- Reason text -->
+            <div id="analyzerReason" style="font-size:10px;color:var(--text-secondary);line-height:1.7;padding:8px;background:var(--bg-card);border-left:2px solid var(--cyan)"></div>
+
+            <!-- Log button -->
+            <button class="btn btn-primary btn-full" onclick="logAnalyzedAlert()" style="margin-top:10px">+ ADD TO ALERTS</button>
+          </div>
+
+          <!-- Empty state -->
+          <div id="analyzerEmpty" style="text-align:center;padding:30px;color:var(--text-dim);font-size:11px">
+            <div style="font-size:28px;margin-bottom:8px;opacity:0.3">◎</div>
+            Type a ticker and press GO or Enter
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT: SCANNER + ALERTS -->
+    <div>
+      <!-- Monitor + Scan Controls -->
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-header">
+          <div class="panel-title">SCANNER <span>CONTROL</span></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-secondary" onclick="clearAlerts()">CLEAR</button>
+            <button class="btn btn-primary" id="scanBtn" onclick="runScan()">▶ RUN SCAN</button>
+            <button class="btn btn-green" id="monitorBtn" onclick="toggleMonitor()">⟳ AUTO MONITOR</button>
+            <span id="monitorTickerCount" style="font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;align-self:center;margin-left:2px"></span>
+          </div>
+        </div>
+        <div class="panel-body" style="padding:10px 14px">
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <div style="flex:1;min-width:160px">
+              <div class="input-label">Ticker (or comma list) <span onclick="loadNDX100()" style="color:var(--cyan);cursor:pointer;font-size:9px;margin-left:8px;letter-spacing:1px;border:1px solid var(--cyan);padding:1px 6px">LOAD NDX100</span></div>
+              <input type="text" id="tickerInput" placeholder="NDX100 tickers..." value="">
+            </div>
+            <div style="flex:1;min-width:160px">
+              <div class="input-label" style="display:flex;align-items:center;justify-content:space-between">
+                <span>Sector / List Filter</span>
+                <span id="gapperRefreshBtn" onclick="fetchTopGappers(true)" style="color:var(--cyan);cursor:pointer;font-size:9px;letter-spacing:1px;border:1px solid var(--cyan);padding:1px 6px;display:none">↻ REFRESH</span>
+              </div>
+              <select id="sectorFilter" onchange="applySectorFilter()">
+                <option value="ALL">📊 ALL SECTORS (101)</option>
+                <option value="MYLIST">⭐ MY LIST</option>
+                <option value="GAPPERS">🚀 TOP GAPPERS (NDX100)</option>
+                <option disabled>──────────────</option>
+                <option value="SEMI">⚡ Semiconductors</option>
+                <option value="TECH">💻 Technology</option>
+                <option value="CLOUD">☁️ Cloud / SaaS / Cyber</option>
+                <option value="ECOM">🛒 E-Commerce / Internet</option>
+                <option value="CONS">🛍️ Consumer</option>
+                <option value="HEALTH">💊 Healthcare / Biotech</option>
+                <option value="FINTECH">📈 FinTech / AI</option>
+                <option value="TELECOM">📡 Telecom / Media</option>
+                <option value="INDUST">⚙️ Industrial / Energy</option>
+              </select>
+              <!-- Gapper strip shown below dropdown when GAPPERS selected -->
+              <div id="gapperStrip" style="display:none;margin-top:6px;font-size:10px;font-family:'IBM Plex Mono',monospace;color:var(--text-secondary);line-height:1.7;max-height:80px;overflow-y:auto"></div>
+            </div>
+
+
+          </div>
+          <div class="monitor-row" id="monitorRow">
+            <div class="monitor-status" id="monitorStatus">● Auto monitor: OFF</div>
+            <div id="monitorNextScan" style="font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs: Alerts / Watchlist / Log -->
+      <div class="panel">
+        <div class="panel-header" style="padding:0">
+          <div class="tab-nav">
+            <button class="tab-btn active" onclick="switchTab('alerts',this)">ALERTS</button>
+            <button class="tab-btn" onclick="switchTab('watchlist',this)">WATCHLIST</button>
+            <button class="tab-btn" onclick="switchTab('custom',this)">CUSTOM SCAN</button>
+            <button class="tab-btn" onclick="switchTab('log',this)">SIGNAL LOG</button>
+          </div>
+        </div>
+
+        <!-- ALERTS TAB -->
+        <div class="tab-pane active" id="tab-alerts">
+          <div class="alerts-scroll">
+            <table class="alerts-table">
+              <thead>
+                <tr>
+                  <th style="width:32px">#</th>
+                  <th>TIME</th>
+                  <th>TICKER</th>
+                  <th>GRADE</th>
+                  <th>SCORE</th>
+                  <th>SECTOR</th>
+                  <th>SIGNALS</th>
+                  <th>STATUS</th>
+                  <th>PRICE</th>
+                  <th>ENTRY</th>
+                  <th>TP1</th>
+                  <th>TP2</th>
+                  <th>STOP</th>
+                  <th>R:R</th>
+                </tr>
+              </thead>
+              <tbody id="alertsBody">
+                <tr>
+                  <td colspan="14">
+                    <div class="empty-state">
+                      <div class="icon">◎</div>
+                      No alerts yet — run scan or enable auto monitor
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- WATCHLIST TAB -->
+        <div class="tab-pane" id="tab-watchlist">
+          <div class="panel-body">
+            <div style="display:flex;gap:8px;margin-bottom:12px">
+              <input type="text" id="wlAdd" placeholder="Add ticker..." style="flex:1">
+              <button class="btn btn-primary" onclick="addToWatchlist()">ADD</button>
+            </div>
+            <div id="watchlistItems"></div>
+          </div>
+        </div>
+
+        <!-- CUSTOM SCAN TAB -->
+        <div class="tab-pane" id="tab-custom">
+          <div class="panel-body">
+            <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+              <input type="text" id="customAdd" placeholder="Add ticker (e.g. KR, ORCL, CRM)..." style="flex:1" onkeydown="if(event.key==='Enter')addCustomTicker()">
+              <button class="btn btn-primary" onclick="addCustomTicker()">ADD</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:8px 10px;background:rgba(0,255,135,0.05);border:1px solid rgba(0,255,135,0.15);border-radius:3px">
+              <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+                <input type="checkbox" id="customAutoScanChk" onchange="toggleCustomAutoScan()" style="width:14px;height:14px;accent-color:var(--cyan)">
+                <span style="font-size:11px;color:var(--cyan);font-family:'IBM Plex Mono',monospace;letter-spacing:0.5px">AUTO-INCLUDE IN EVERY SCAN</span>
+              </label>
+              <span id="customScanStatus" style="font-size:10px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;margin-left:auto"></span>
+            </div>
+            <div id="customItems"></div>
+          </div>
+        </div>
+
+        <!-- LOG TAB -->
+        <div class="tab-pane" id="tab-log">
+          <div class="panel-body">
+            <div id="signalLog" style="font-size:11px;color:var(--text-secondary);max-height:400px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;line-height:1.8">
+              <span style="color:var(--text-dim)">// Signal log initialized — v13</span><br>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ════════════════════════════════════════════════
+// STATE
+// ════════════════════════════════════════════════
+const state = {
+  alerts: [],
+  watchlist: ['AAPL','NVDA','MSFT','TSLA','META','GOOGL','CRWD','APP','MSTR','PLTR'],
+  monitorActive: false,
+  monitorTimer: null,
+  customTickers: [],
+  customAutoScan: false,
+  countdownTimer: null,
+  countdownVal: 0,
+  trades: 0,
+  devMode: false,
+  tgToken: '',
+  tgChatId: '1026720092',
+  scanned: 0,
+  alertCooldowns: {},   // ticker → { grade, firedAt }
+  COOLDOWN_MS: 45 * 60 * 1000  // 45 min cooldown per ticker
+};
+
+
+// ── SECTOR MAP ──
+
+const SECTOR_MAP = {
+  // Technology
+  AAPL:'TECH', MSFT:'TECH', NVDA:'SEMI', AMD:'SEMI', INTC:'SEMI', AVGO:'SEMI',
+  AMAT:'SEMI', LRCX:'SEMI', KLAC:'SEMI', MRVL:'SEMI', NXPI:'SEMI', MPWR:'SEMI',
+  MCHP:'SEMI', ADI:'SEMI', TXN:'SEMI', QCOM:'SEMI', ARM:'SEMI', MU:'SEMI',
+  ASML:'SEMI',
+  // Software / Cloud / SaaS
+  META:'CLOUD', GOOGL:'CLOUD', GOOG:'CLOUD', ADBE:'CLOUD', CRM:'CLOUD',
+  INTU:'CLOUD', SNPS:'CLOUD', CDNS:'CLOUD', ADSK:'CLOUD', WDAY:'CLOUD',
+  TEAM:'CLOUD', DDOG:'CLOUD', ZS:'CLOUD', CRWD:'CLOUD', PANW:'CLOUD',
+  FTNT:'CLOUD', AXON:'CLOUD', ROP:'CLOUD', VRSK:'CLOUD', CSGP:'CLOUD',
+  // E-Commerce / Internet
+  AMZN:'ECOM', SHOP:'ECOM', MELI:'ECOM', BKNG:'ECOM', ABNB:'ECOM',
+  PYPL:'ECOM', DASH:'ECOM', TTWO:'ECOM', EA:'ECOM',
+  // Hardware / Devices
+  CSCO:'TECH', STX:'TECH', WDC:'TECH',
+  // Telecom / Media
+  TMUS:'TELECOM', CMCSA:'TELECOM', CHTR:'TELECOM', WBD:'TELECOM',
+  // Consumer
+  TSLA:'CONS', COST:'CONS', WMT:'CONS', SBUX:'CONS', ROST:'CONS',
+  ORLY:'CONS', MNST:'CONS', KDP:'CONS', MDLZ:'CONS', KHC:'CONS',
+  PEP:'CONS', PCAR:'CONS', FAST:'CONS', CTAS:'CONS', CPRT:'CONS', ODFL:'CONS',
+  CSX:'CONS', MAR:'CONS',
+  // Healthcare / Biotech
+  AMGN:'HEALTH', GILD:'HEALTH', ISRG:'HEALTH', REGN:'HEALTH', VRTX:'HEALTH',
+  IDXX:'HEALTH', DXCM:'HEALTH', GEHC:'HEALTH', ALNY:'HEALTH', INSM:'HEALTH', AZN:'HEALTH', BIIB:'HEALTH',
+  MRNA:'HEALTH',
+  // Fintech / Crypto
+  PLTR:'FINTECH', MSTR:'FINTECH', APP:'FINTECH', PYPL:'FINTECH',
+  // Industrial / Energy
+  HON:'INDUST', LIN:'INDUST', CEG:'INDUST', AEP:'INDUST', XEL:'INDUST',
+  EXC:'INDUST', BKR:'INDUST', FANG:'INDUST',
+  // Other
+  PDD:'OTHER', PAYX:'OTHER', ADP:'OTHER', TRI:'OTHER', CCEP:'OTHER',
+  FER:'OTHER', CTSH:'OTHER',
+};
+
+function applySectorFilter() {
+  const sector = document.getElementById('sectorFilter').value;
+  const input = document.getElementById('tickerInput');
+  const strip = document.getElementById('gapperStrip');
+  const refreshBtn = document.getElementById('gapperRefreshBtn');
+
+  // Hide gapper strip by default
+  strip.style.display = 'none';
+  refreshBtn.style.display = 'none';
+
+  if (sector === 'ALL') {
+    input.value = NDX100_TICKERS.join(',');
+    log(`Sector filter: ALL — ${NDX100_TICKERS.length} tickers loaded`);
+
+  } else if (sector === 'MYLIST') {
+    const myList = state.watchlist;
+    if (!myList.length) {
+      log('⚠️ MY LIST is empty — add tickers in the Watchlist tab first');
+      input.value = '';
+      return;
+    }
+    input.value = myList.join(',');
+    log(`⭐ MY LIST loaded — ${myList.length} tickers: ${myList.join(', ')}`);
+
+  } else if (sector === 'GAPPERS') {
+    refreshBtn.style.display = 'inline';
+    // Use cached gappers if available, else fetch fresh
+    if (state.gappers && state.gappers.length) {
+      applyGappersToInput();
+    } else {
+      fetchTopGappers(false);
+    }
+
+  } else {
+    const filtered = NDX100_TICKERS.filter(t => SECTOR_MAP[t] === sector);
+    input.value = filtered.join(',');
+    const label = document.querySelector(`#sectorFilter option[value="${sector}"]`).textContent;
+    log(`Sector filter: ${label.trim()} — ${filtered.length} tickers: ${filtered.join(', ')}`);
+  }
+  updateTickerCount();
+}
+
+// ── GAPPER FETCH ──
+async function fetchTopGappers(forceRefresh = false) {
+  const strip = document.getElementById('gapperStrip');
+  const input = document.getElementById('tickerInput');
+  const refreshBtn = document.getElementById('gapperRefreshBtn');
+
+  strip.style.display = 'block';
+  strip.innerHTML = '<span style="color:var(--cyan)">⟳ Fetching top NDX100 gappers...</span>';
+  refreshBtn.style.display = 'inline';
+  refreshBtn.style.opacity = '0.4';
+  refreshBtn.style.pointerEvents = 'none';
+
+  log('🚀 Fetching top NDX100 gappers from Yahoo Finance...');
+
+  // Fetch all NDX100 in batches of 10
+  async function getChg(ticker) {
+    try {
+      // Step 1: daily 5d for prev close (closes[-2] = yesterday's confirmed close)
+      const url = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=5d`;
+      const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+      const res = await fetch(proxy);
+      const data = await res.json();
+      const closes = (data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+      if (closes.length < 2) return null;
+      // Deduplicate: if last two closes are identical, today's candle hasn't opened yet
+      // Use closes[-2] as prev, closes[-1] as today only if they differ
+      const prev = closes[closes.length - 2];
+      let price = closes[closes.length - 1];
+
+      // Step 2: if pre/post market, fetch real current price from 1-min candles
+      if (!isRegularSession()) {
+        try {
+          const url1m = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d&includePrePost=true`;
+          const res1m = await fetch(`https://corsproxy.io/?${encodeURIComponent(url1m)}`);
+          const d1m = await res1m.json();
+          const c1m = (d1m?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+          if (c1m.length > 0) price = c1m[c1m.length - 1];
+        } catch(e2) { /* keep daily price */ }
+      }
+
+      if (!price || !prev) return null;
+      const chgPct = ((price - prev) / prev) * 100;
+      return { ticker, price, prev, chgPct };
+    } catch(e) { return null; }
+  }
+
+  // Batch with small delay to avoid hammering
+  const results = [];
+  const batchSize = 10;
+  for (let i = 0; i < NDX100_TICKERS.length; i += batchSize) {
+    const batch = NDX100_TICKERS.slice(i, i + batchSize);
+    const res = await Promise.all(batch.map(t => getChg(t)));
+    results.push(...res.filter(Boolean));
+    if (i + batchSize < NDX100_TICKERS.length) await new Promise(r => setTimeout(r, 200));
+  }
+
+  // Sort by gap %, take top 10 with >0.5% gain
+  const gappers = results
+    .filter(x => x.chgPct > 0.5)
+    .sort((a, b) => b.chgPct - a.chgPct)
+    .slice(0, 12);
+
+  state.gappers = gappers;
+  state.gappersTime = new Date();
+
+  refreshBtn.style.opacity = '1';
+  refreshBtn.style.pointerEvents = 'auto';
+
+  applyGappersToInput();
+  log(`🚀 Top gappers: ${gappers.map(g => g.ticker + ' +' + g.chgPct.toFixed(1) + '%').join(' | ')}`);
+}
+
+function applyGappersToInput() {
+  const strip = document.getElementById('gapperStrip');
+  const input = document.getElementById('tickerInput');
+  const gappers = state.gappers || [];
+
+  if (!gappers.length) {
+    strip.style.display = 'block';
+    strip.innerHTML = '<span style="color:var(--text-dim)">No NDX100 gappers >0.5% found today</span>';
+    input.value = '';
+    return;
+  }
+
+  // Load tickers into scan input
+  input.value = gappers.map(g => g.ticker).join(',');
+
+  // Show info strip with % changes
+  strip.style.display = 'block';
+  const timeStr = state.gappersTime
+    ? state.gappersTime.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'})
+    : '';
+  const rows = gappers.map(g => {
+    const color = g.chgPct >= 3 ? 'var(--aplus)' : g.chgPct >= 1.5 ? 'var(--a)' : 'var(--cyan)';
+    return `<span style="display:inline-block;margin-right:10px"><span style="color:${color};font-weight:bold">${g.ticker}</span> <span style="color:var(--text-secondary)">+${g.chgPct.toFixed(1)}%</span> <span style="color:var(--text-dim)">$${g.price.toFixed(2)}</span></span>`;
+  }).join('');
+  strip.innerHTML = `<div style="margin-bottom:3px;color:var(--text-dim);font-size:9px">AS OF ${timeStr} — TOP ${gappers.length} NDX100 GAPPERS</div>${rows}`;
+}
+
+// ── NDX100 FULL LIST ──
+const NDX100_TICKERS = "NVDA,AAPL,GOOGL,GOOG,MSFT,AMZN,META,AVGO,TSLA,ASML,MU,COST,AMD,NFLX,AZN,PLTR,CSCO,LRCX,AMAT,TMUS,INTC,PEP,LIN,TXN,AMGN,KLAC,GILD,ISRG,ADI,HON,QCOM,SHOP,PDD,BKNG,ARM,APP,VRTX,CMCSA,PANW,INTU,SBUX,ADBE,CRWD,MELI,CEG,MAR,ADP,SNPS,REGN,ORLY,MNST,MDLZ,CDNS,CTAS,CSX,ABNB,WBD,DASH,MRVL,AEP,PCAR,ROST,FTNT,NXPI,BKR,FAST,EA,IDXX,EXC,FANG,ADSK,XEL,CCEP,DDOG,MCHP,MSTR,KDP,ODFL,TRI,WDAY,PYPL,GEHC,CPRT,TTWO,AXON,ROP,CHTR,PAYX,CTSH,KHC,BIIB,ON,VRSK,DXCM,ZS,TEAM,CSGP,WMT,MPWR,STX,WDC,INSM,ALNY".split(',');
+
+function loadNDX100() {
+  document.getElementById('tickerInput').value = NDX100_TICKERS.join(',');
+  log(`NDX100 loaded — ${NDX100_TICKERS.length} tickers ready`);
+  updateTickerCount();
+}
+
+function updateTickerCount() {
+  const el = document.getElementById('monitorTickerCount');
+  if (!el) return;
+  const effective = getEffectiveTickers();
+  const base = document.getElementById('tickerInput').value.split(',').map(t=>t.trim()).filter(Boolean).length;
+  const custom = (state.customAutoScan && state.customTickers.length > 0) ? state.customTickers.length : 0;
+  if (effective.length === 0) { el.textContent = ''; return; }
+  el.textContent = custom > 0 ? `${base} + ${custom} custom` : `${effective.length} tickers`;
+}
+
+// ════════════════════════════════════════════════
+// SCORING MODEL v13
+// ════════════════════════════════════════════════
+const SCORE_WEIGHTS = {
+  ema20: 2,    // price > 20 EMA
+  sma50: 2,    // price > 50 SMA
+  rsi:   2,    // RSI 50-65
+  volume: 3,   // volume > 1.5x avg
+  breakout: 3, // breakout detected
+  lux: 4       // LuxAlgo confirmation
+};
+// Max score = 16
+
+function gradeFromScore(score, hasBreakout, hasLux) {
+  const hasPA = hasBreakout || hasLux; // price action gate
+  if (score >= 14 && hasPA) return 'A+';
+  if (score >= 11 && hasPA) return 'A';
+  if (score >= 8)  return 'B';
+  if (score >= 6)  return 'WATCHING';
+  return null;
+}
+
+function gradeClass(grade) {
+  if (grade === 'A+') return 'grade-aplus';
+  if (grade === 'A')  return 'grade-a';
+  if (grade === 'B')  return 'grade-b';
+  return 'grade-watching';
+}
+
+function gradeColor(grade) {
+  if (grade === 'A+') return 'var(--aplus)';
+  if (grade === 'A')  return 'var(--a)';
+  if (grade === 'B')  return 'var(--b)';
+  return 'var(--watching)';
+}
+
+// ── LIVE PRICE CACHE ──
+const priceCache = {};
+
+// Detect if market is in regular session (9:30–16:00 ET)
+function isRegularSession() {
+  const now = new Date();
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const h = et.getHours(), m = et.getMinutes();
+  const mins = h * 60 + m;
+  const dow = et.getDay();
+  if (dow === 0 || dow === 6) return false; // weekend
+  return mins >= 570 && mins < 960; // 9:30–16:00
+}
+
+async function fetchOneTicker(ticker) {
+  try {
+    // ── Step 1: Daily candles (1mo) for EMA20, RSI14, SMA50, avg volume ──
+    const urlDaily = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1mo`;
+    const resDaily = await fetch(`https://corsproxy.io/?${encodeURIComponent(urlDaily)}`);
+    const dataDaily = await resDaily.json();
+    const resultDaily = dataDaily?.chart?.result?.[0];
+    if (!resultDaily) return;
+
+    const meta    = resultDaily.meta;
+    const qDaily  = resultDaily.indicators?.quote?.[0] || {};
+    const closes  = (qDaily.close  || []).filter(v => v != null);
+    const volumes = (qDaily.volume || []).filter(v => v != null);
+    const opens   = (qDaily.open   || []).filter(v => v != null);
+
+    // Real 10-day avg volume
+    const avgVol10 = volumes.length >= 10
+      ? volumes.slice(-10).reduce((a,b) => a+b, 0) / 10
+      : volumes.reduce((a,b) => a+b, 0) / Math.max(volumes.length, 1);
+
+    // Real EMA20
+    let ema20 = null;
+    if (closes.length >= 5) {
+      const period = Math.min(20, closes.length);
+      const k = 2 / (period + 1);
+      ema20 = closes.slice(0, period).reduce((a,b) => a+b, 0) / period;
+      for (let i = period; i < closes.length; i++) ema20 = closes[i] * k + ema20 * (1 - k);
+    }
+
+    // Real RSI14
+    let rsi14 = null;
+    if (closes.length >= 15) {
+      const diffs = closes.slice(-15).map((c,i,a) => i===0 ? 0 : c-a[i-1]).slice(1);
+      const avgGain = diffs.map(d=>d>0?d:0).reduce((a,b)=>a+b,0) / 14;
+      const avgLoss = diffs.map(d=>d<0?-d:0).reduce((a,b)=>a+b,0) / 14;
+      rsi14 = avgLoss === 0 ? 100 : 100 - (100 / (1 + avgGain / avgLoss));
+    }
+
+    const todayOpen = opens.length > 0 ? opens[opens.length - 1] : meta.regularMarketPrice;
+
+    // ── Step 2: 1-min candles with pre/post to get real current price ──
+    // Yahoo's regularMarketPrice is stale outside regular hours
+    // The last 1-min candle (includePrePost=true) has the actual live price
+    // Use last daily close as the reliable base price — regularMarketPrice can be stale/garbage
+    const lastDailyClose = closes.length > 0 ? closes[closes.length - 1] : null;
+    let livePrice = lastDailyClose || meta.regularMarketPrice;
+    let marketTag = 'REG';
+    let todayHigh = meta.regularMarketDayHigh || livePrice;
+    let todayLow  = meta.regularMarketDayLow  || livePrice;
+    let todayVol  = meta.regularMarketVolume;
+
+    if (!isRegularSession()) {
+      try {
+        const url1m = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d&includePrePost=true`;
+        const res1m = await fetch(`https://corsproxy.io/?${encodeURIComponent(url1m)}`);
+        const data1m = await res1m.json();
+        const result1m = data1m?.chart?.result?.[0];
+        const q1m = result1m?.indicators?.quote?.[0] || {};
+        const closes1m = (q1m.close || []).filter(v => v != null);
+        const highs1m  = (q1m.high  || []).filter(v => v != null);
+        const lows1m   = (q1m.low   || []).filter(v => v != null);
+        const vols1m   = (q1m.volume|| []).filter(v => v != null);
+
+        if (closes1m.length > 0) {
+          livePrice = closes1m[closes1m.length - 1];
+          todayHigh = Math.max(...highs1m);
+          todayLow  = Math.min(...lows1m);
+          todayVol  = vols1m.reduce((a,b) => a+b, 0);
+          const et = new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}));
+          const mins = et.getHours()*60 + et.getMinutes();
+          marketTag = mins < 570 ? 'PRE' : 'POST';
+        } else {
+          // No 1-min candles yet (very early pre-market) — use last daily close, tag as EST
+          marketTag = 'EST';
+        }
+      } catch(e) { marketTag = 'EST'; }
+    }
+
+    priceCache[ticker] = {
+      price:     livePrice,
+      prevClose: closes.length >= 2 ? closes[closes.length - 2] : (meta.chartPreviousClose || livePrice),
+      volume:    todayVol,
+      avgVolume: avgVol10,
+      sma50:     meta.fiftyDayAverage || (livePrice * 0.96),
+      open:      todayOpen,
+      high:      todayHigh,
+      low:       todayLow,
+      ema20,
+      rsi14,
+      marketTag, // 'PRE', 'REG', or 'POST'
+    };
+  } catch(e) { /* silently skip */ }
+}
+
+async function fetchLivePrices(tickers) {
+  // Fetch in parallel batches of 5 to avoid rate limits
+  const batchSize = 5;
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    await Promise.all(batch.map(t => fetchOneTicker(t)));
+    if (i + batchSize < tickers.length) await new Promise(r => setTimeout(r, 300));
+  }
+  const fetched = tickers.filter(t => priceCache[t]);
+  log(`✓ Live data: ${fetched.length}/${tickers.length} tickers fetched`);
+  if (fetched.length) log(`  Prices: ${fetched.map(t => t + ' $' + priceCache[t].price.toFixed(2)).join(' | ')}`);
+}
+
+
+// Build stock analysis using live price where available
+function buildStock(ticker) {
+  const live = priceCache[ticker];
+
+  // No live data = skip entirely, never fake prices
+  if (!live) return null;
+
+  // ── PRICE ──
+  const price = live.price;
+
+  // ── EMA20: real computed value from 1mo candles, else estimate ──
+  const ema20 = live.ema20 || price * 0.97;
+
+  // ── SMA50: Yahoo fiftyDayAverage ──
+  const sma50 = live.sma50 || price * 0.96;
+
+  // ── RSI14: real computed from candles, else estimate ──
+  const rsi = live.rsi14 !== null ? live.rsi14 : (50 + ((live.price - live.prevClose) / live.prevClose) * 350);
+
+  // ── VOLUME MULTIPLIER: today vs real 10-day avg ──
+  const volMult = live.volume / Math.max(live.avgVolume, 1);
+
+  // ── GAP %: today open vs prev close ──
+  const gap = live
+    ? ((live.open - live.prevClose) / live.prevClose) * 100
+    : (r(8)*6 - 1);
+
+  // ── BREAKOUT: within 0.5% of day high ──
+  const breakout = live
+    ? (live.price >= live.high * 0.995)
+    : r(6) > 0.62;
+
+  // ── LUX: vol spike + positive gap + price above real EMA20 ──
+  const lux = live
+    ? (volMult > 1.3 && gap > 0.2 && live.price > ema20)
+    : r(7) > 0.55;
+
+  const signals = {
+    ema20: price > ema20,
+    sma50: price > sma50,
+    rsi: rsi >= 50 && rsi <= 65,
+    volume: volMult >= 1.5,
+    breakout,
+    lux
+  };
+
+  let score = 0;
+  if (signals.ema20)    score += SCORE_WEIGHTS.ema20;
+  if (signals.sma50)    score += SCORE_WEIGHTS.sma50;
+  if (signals.rsi)      score += SCORE_WEIGHTS.rsi;
+  if (signals.volume)   score += SCORE_WEIGHTS.volume;
+  if (signals.breakout) score += SCORE_WEIGHTS.breakout;
+  if (signals.lux)      score += SCORE_WEIGHTS.lux;
+
+  const grade = gradeFromScore(score, signals.breakout, signals.lux);
+
+  // ── ENTRY / TARGETS based on real ATR (high-low) ──
+  const entry = price;
+  const atr = live
+    ? Math.max(live.high - live.low, price * 0.012)
+    : price * 0.015;
+  const stop = entry - atr * 1.5;
+  const tp1  = entry + atr * 2.5;
+  const tp2  = entry + atr * 4.5;
+  const rr   = ((tp1 - entry) / (entry - stop)).toFixed(1);
+
+  return { ticker, price, rsi, volMult, gap, signals, score, grade, entry, stop, tp1, tp2, rr, atr, isLive: !!live };
+}
+
+// ════════════════════════════════════════════════
+// SCAN
+// ════════════════════════════════════════════════
+// ── LIVE PRICE CACHE ──
+
+async function runScan() {
+  const tickers = getEffectiveTickers();
+  const threshold = parseInt(document.getElementById('alertThreshold').value);
+
+  // Clear stale cache for this scan batch — never show old data
+  tickers.forEach(t => delete priceCache[t]);
+
+  const btn = document.getElementById('scanBtn');
+  btn.textContent = '⟳ FETCHING...';
+  btn.disabled = true;
+  log(`Fetching live prices for ${tickers.length} tickers...`);
+
+  await fetchLivePrices(tickers);
+
+  btn.textContent = '▶ RUN SCAN';
+  btn.disabled = false;
+
+  state.scanned += tickers.length;
+  updateStats();
+
+  tickers.forEach((ticker, i) => {
+    setTimeout(() => {
+      const data = buildStock(ticker);
+      if (!data) { log(`  [SKIP] ${ticker} — no live price data`); return; }
+      if (data.grade && gradeToScore(data.grade) >= gradeToScore(gradeFromThreshold(threshold))) {
+        addAlert(data);
+      }
+    }, i * 60);
+  });
+
+  // Re-render after all tickers done — refreshes STATUS + RANK on existing alerts
+  setTimeout(() => { if (state.alerts.length) renderAlerts(); }, tickers.length * 60 + 300);
+
+  // Refresh market pulse on every scan
+  fetchMarketPulse();
+}
+
+function gradeToScore(g) {
+  return {A:3,'A+':4,B:2,WATCHING:1}[g]||0;
+}
+function gradeFromThreshold(t) {
+  if (t >= 14) return 'A+';
+  if (t >= 11) return 'A';
+  if (t >= 8) return 'B';
+  return 'WATCHING';
+}
+
+function shouldAlert(ticker, grade) {
+  const prev = state.alertCooldowns[ticker];
+  if (!prev) return true; // never alerted
+  const elapsed = Date.now() - prev.firedAt;
+  if (elapsed > state.COOLDOWN_MS) return true; // cooldown expired
+  // Grade upgraded? Fire immediately
+  const gradeRank = { 'WATCHING': 1, 'B': 2, 'A': 3, 'A+': 4 };
+  if ((gradeRank[grade] || 0) > (gradeRank[prev.grade] || 0)) return true;
+  return false; // still in cooldown, same or lower grade
+}
+
+function addAlert(data) {
+  // Deduplicate — skip if ticker is in cooldown at same/lower grade
+  if (!shouldAlert(data.ticker, data.grade)) {
+    log(`[COOLDOWN] ${data.ticker} suppressed — already alerted at ${data.grade} grade. Resets in ${Math.ceil((state.COOLDOWN_MS - (Date.now() - state.alertCooldowns[data.ticker].firedAt)) / 60000)}min`);
+    return;
+  }
+
+  // Record cooldown
+  state.alertCooldowns[data.ticker] = { grade: data.grade, firedAt: Date.now() };
+
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const entry = { ...data, time, id: Date.now() + Math.random() };
+  state.alerts.unshift(entry);
+
+  // Stats
+  if (data.grade === 'A+') state.alerts_aplus = (state.alerts_aplus||0)+1;
+  if (data.grade === 'A') state.alerts_a = (state.alerts_a||0)+1;
+  if (data.grade === 'WATCHING') state.alerts_watch = (state.alerts_watch||0)+1;
+  updateStats();
+  renderAlerts();
+  log(`[${time}] ${data.ticker} → ${data.grade} (${data.score}/16) RR:${data.rr}x`);
+  sendTelegram(entry);
+
+  // Sound
+  if (document.getElementById('soundMode').checked && (data.grade==='A+'||data.grade==='A')) {
+    playBeep(data.grade === 'A+' ? 880 : 660);
+  }
+}
+
+function playBeep(freq) {
+  try {
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(); osc.stop(ctx.currentTime + 0.4);
+  } catch(e){}
+}
+
+// ════════════════════════════════════════════════
+// RANK + STATUS
+// ════════════════════════════════════════════════
+
+// Composite rank score — higher = better pick
+function rankScore(a) {
+  const gradeW  = { 'A+': 40, 'A': 25, 'B': 10, 'WATCHING': 2 }[a.grade] || 0;
+  const scoreW  = a.score * 2;                          // 0–32
+  const volW    = Math.min(a.volMult, 5) * 4;           // 0–20
+  const rrW     = Math.min(parseFloat(a.rr), 4) * 3;   // 0–12
+  const gapW    = Math.min(Math.max(a.gap, 0), 8) * 1; // 0–8
+  return gradeW + scoreW + volW + rrW + gapW;
+}
+
+// Entry status based on live price vs entry zone
+function entryStatus(a) {
+  const live = priceCache[a.ticker];
+  const price = live ? live.price : a.price;
+  const entry = a.entry;
+  const atr   = a.atr || entry * 0.015;
+
+  const distPct = ((price - entry) / entry) * 100;
+
+  if (!a.isLive) {
+    return { label: 'NO LIVE DATA', color: 'var(--text-dim)', dot: '○' };
+  }
+  if (price <= entry && price >= entry - atr * 0.5) {
+    return { label: 'ENTRY NOW', color: 'var(--aplus)', dot: '●' };
+  }
+  if (price > entry && price <= entry + atr * 0.5) {
+    return { label: 'NEAR ENTRY', color: 'var(--gold)', dot: '◉' };
+  }
+  if (price > entry + atr * 0.5 && price <= entry + atr * 1.5) {
+    return { label: 'EXTENDED', color: 'var(--a)', dot: '◈' };
+  }
+  if (price > entry + atr * 1.5) {
+    return { label: 'CHASING', color: 'var(--red)', dot: '✕' };
+  }
+  if (price < entry - atr * 0.5) {
+    return { label: 'WATCHING', color: 'var(--cyan)', dot: '◎' };
+  }
+  return { label: 'WATCHING', color: 'var(--cyan)', dot: '◎' };
+}
+
+// ════════════════════════════════════════════════
+// RENDER ALERTS
+// ════════════════════════════════════════════════
+function renderAlerts() {
+  const body = document.getElementById('alertsBody');
+  if (!state.alerts.length) {
+    body.innerHTML = `<tr><td colspan="14"><div class="empty-state"><div class="icon">◎</div>No alerts yet</div></td></tr>`;
+    return;
+  }
+
+  // Sort by rank score descending — best pick always #1
+  const sorted = [...state.alerts].sort((a, b) => rankScore(b) - rankScore(a));
+
+  body.innerHTML = sorted.map((a, i) => {
+    const tags = [];
+    if (a.signals.breakout) tags.push(`<span class="signal-tag tag-breakout">BREAKOUT</span>`);
+    if (a.signals.lux)      tags.push(`<span class="signal-tag tag-inst">LUXALGO</span>`);
+    if (a.signals.volume)   tags.push(`<span class="signal-tag tag-vol">VOL ${a.volMult.toFixed(1)}x</span>`);
+    if (a.gap > 2)          tags.push(`<span class="signal-tag tag-gap">GAP+${a.gap.toFixed(1)}%</span>`);
+
+    const barPct   = Math.round((a.score / 16) * 100);
+    const scoreColor = a.grade==='A+'?'var(--aplus)':a.grade==='A'?'var(--a)':a.grade==='B'?'var(--b)':'var(--watching)';
+    const rrColor  = parseFloat(a.rr) >= 2.5 ? 'var(--green)' : parseFloat(a.rr) >= 1.5 ? 'var(--gold)' : 'var(--red)';
+
+    // Rank badge style — top 3 get special colors
+    const rankColors = ['var(--aplus)', 'var(--gold)', 'var(--a)'];
+    const rankColor  = rankColors[i] || 'var(--text-dim)';
+    const rankLabel  = i === 0 ? '★1' : `#${i+1}`;
+
+    // Cooldown badge
+    const cdBadge = (()=>{
+      const cd = state.alertCooldowns[a.ticker];
+      if (!cd) return '';
+      const minLeft = Math.ceil((state.COOLDOWN_MS - (Date.now() - cd.firedAt)) / 60000);
+      if (minLeft <= 0) return '';
+      return `<span style="font-size:8px;color:var(--text-dim);border:1px solid var(--border);padding:0 3px;margin-left:3px">🔕${minLeft}m</span>`;
+    })();
+
+    // Entry status
+    const st = entryStatus(a);
+
+    return `
+    <tr class="${i===0 ? 'alert-new' : ''}">
+      <td style="color:${rankColor};font-weight:700;font-size:11px;letter-spacing:0.5px;text-align:center">${rankLabel}</td>
+      <td style="color:var(--text-dim)">${a.time}</td>
+      <td class="ticker-cell">${a.ticker} ${(()=>{
+        const live = priceCache[a.ticker];
+        if (!a.isLive) return '<span style="font-size:9px;color:var(--text-dim)">EST</span>';
+        const tag = live?.marketTag || 'REG';
+        const color = tag==='PRE'?'var(--gold)':tag==='POST'?'var(--a)':'var(--green)';
+        return `<span style="font-size:9px;color:${color};opacity:0.85">${tag}</span>`;
+      })()}${cdBadge}</td>
+      <td><span class="grade-badge ${gradeClass(a.grade)}">${a.grade}</span></td>
+      <td>
+        <div class="score-bar-container">
+          <div class="score-bar"><div class="score-bar-fill" style="width:${barPct}%;background:${scoreColor}"></div></div>
+          <div class="score-num" style="color:${scoreColor}">${a.score}</div>
+        </div>
+      </td>
+      <td><span style="font-size:10px;color:var(--text-dim);letter-spacing:0.5px">${SECTOR_MAP[a.ticker]||'—'}</span></td>
+      <td>${tags.join('')}</td>
+      <td>
+        <span style="font-size:10px;color:${st.color};letter-spacing:0.4px;white-space:nowrap;font-weight:600">
+          ${st.dot} ${st.label}
+        </span>
+      </td>
+      <td class="price-up">$${a.price.toFixed(2)}</td>
+      <td style="color:var(--cyan)">$${a.entry.toFixed(2)}</td>
+      <td style="color:var(--green)">$${a.tp1.toFixed(2)}</td>
+      <td style="color:var(--aplus)">$${a.tp2.toFixed(2)}</td>
+      <td style="color:var(--red)">$${a.stop.toFixed(2)}</td>
+      <td style="color:${rrColor};font-weight:600">${a.rr}x</td>
+    </tr>`;
+  }).join('');
+}
+
+// ════════════════════════════════════════════════
+// AUTO MONITOR
+// ════════════════════════════════════════════════
+function addCustomTicker() {
+  const val = document.getElementById('customAdd').value.trim().toUpperCase();
+  if (!val) return;
+  const tickers = val.split(',').map(t=>t.trim()).filter(Boolean);
+  let added = 0;
+  tickers.forEach(t => { if (t && !state.customTickers.includes(t)) { state.customTickers.push(t); added++; } });
+  document.getElementById('customAdd').value = '';
+  persistCustomTickers();
+  renderCustomTickers();
+  updateTickerCount();
+  if (added) log(`Custom tickers added: ${tickers.join(', ')}`);
+}
+
+function removeCustomTicker(t) {
+  state.customTickers = state.customTickers.filter(x=>x!==t);
+  persistCustomTickers();
+  renderCustomTickers();
+  updateTickerCount();
+}
+
+function renderCustomTickers() {
+  const el = document.getElementById('customItems');
+  if (!el) return;
+  const statusEl = document.getElementById('customScanStatus');
+  const count = state.customTickers.length;
+  if (statusEl) {
+    if (count === 0) statusEl.textContent = 'No custom tickers yet';
+    else if (state.customAutoScan) { statusEl.textContent = `✓ ${count} ticker${count>1?'s':''} included in every scan`; statusEl.style.color='var(--cyan)'; }
+    else { statusEl.textContent = `${count} ticker${count>1?'s':''} — enable above to auto-scan`; statusEl.style.color='var(--text-dim)'; }
+  }
+  if (!count) { el.innerHTML = '<div class="empty-state">No custom tickers — add any stock above</div>'; return; }
+  el.innerHTML = state.customTickers.map(t=>`
+    <div class="watchlist-item">
+      <div>
+        <div class="wl-ticker">${t}</div>
+        <div class="wl-sector">CUSTOM</div>
+      </div>
+      <button class="btn btn-danger" style="padding:3px 8px;font-size:10px" onclick="removeCustomTicker('${t}')">✕</button>
+    </div>`).join('');
+}
+
+function persistCustomTickers() {
+  try { localStorage.setItem('customTickers', JSON.stringify(state.customTickers)); } catch(e){}
+}
+
+function toggleCustomAutoScan() {
+  state.customAutoScan = document.getElementById('customAutoScanChk').checked;
+  try { localStorage.setItem('customAutoScan', state.customAutoScan ? '1' : '0'); } catch(e){}
+  renderCustomTickers();
+  updateTickerCount();
+  log(`Custom auto-include: ${state.customAutoScan ? 'ON — will scan with every run' : 'OFF'}`);
+}
+
+function loadCustomTickersFromStorage() {
+  try {
+    const saved = localStorage.getItem('customTickers');
+    if (saved) state.customTickers = JSON.parse(saved);
+    const autoScan = localStorage.getItem('customAutoScan');
+    if (autoScan === '1') {
+      state.customAutoScan = true;
+      const chk = document.getElementById('customAutoScanChk');
+      if (chk) chk.checked = true;
+    }
+    renderCustomTickers();
+  } catch(e) {}
+}
+
+function getEffectiveTickers() {
+  const inputTickers = document.getElementById('tickerInput').value
+    .split(',').map(t=>t.trim().toUpperCase()).filter(Boolean);
+  if (state.customAutoScan && state.customTickers.length > 0) {
+    // Merge, deduplicate
+    const merged = [...new Set([...inputTickers, ...state.customTickers])];
+    return merged;
+  }
+  return inputTickers;
+}
+
+function toggleMonitor() {
+  state.monitorActive = !state.monitorActive;
+  const btn = document.getElementById('monitorBtn');
+  if (state.monitorActive) {
+    btn.textContent = '■ STOP';
+    btn.className = 'btn btn-danger';
+    const intervalSec = parseInt(document.getElementById('scanInterval').value);
+    const intervalLabel = intervalSec < 120 ? '1 min' : intervalSec < 300 ? '2 min' : intervalSec < 600 ? '5 min' : '10 min';
+    document.getElementById('monitorStatus').style.color = 'var(--aplus)';
+    const customNote = (state.customAutoScan && state.customTickers.length > 0) ? ` + ${state.customTickers.length} custom` : '';
+    document.getElementById('monitorStatus').textContent = `● ACTIVE — scanning every ${intervalLabel}${customNote}`;
+    document.getElementById('monitorNextScan').textContent = '';
+    log('✓ Auto monitor started — interval: ' + intervalLabel);
+    startCountdown();
+    runScan();
+  } else {
+    btn.textContent = '⟳ AUTO MONITOR';
+    btn.className = 'btn btn-green';
+    document.getElementById('monitorStatus').style.color = '';
+    document.getElementById('monitorStatus').textContent = '● Auto monitor: OFF';
+    document.getElementById('monitorNextScan').textContent = '';
+    clearTimeout(state.monitorTimer);
+    clearInterval(state.countdownTimer);
+    log('Auto monitor stopped');
+  }
+}
+
+function startCountdown() {
+  if (!state.monitorActive) return;
+  const interval = parseInt(document.getElementById('scanInterval').value);
+  clearInterval(state.countdownTimer);
+
+  // Show next scan time
+  const nextTime = new Date(Date.now() + interval * 1000);
+  document.getElementById('monitorNextScan').textContent =
+    'Next scan: ' + nextTime.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+
+  state.monitorTimer = setTimeout(() => {
+    if (state.monitorActive) {
+      runScan();
+      startCountdown();
+    }
+  }, interval * 1000);
+}
+
+// ════════════════════════════════════════════════
+// ════════════════════════════════════════════════
+// STOCK ANALYZER
+// ════════════════════════════════════════════════
+let analyzerData = null;
+
+async function analyzeTicker() {
+  const ticker = document.getElementById('analyzerTicker').value.trim().toUpperCase();
+  if (!ticker) return;
+
+  // Show loading
+  document.getElementById('analyzerEmpty').style.display = 'none';
+  document.getElementById('analyzerResults').style.display = 'none';
+  document.getElementById('analyzerLoading').style.display = 'block';
+  document.getElementById('analyzeBtn').textContent = '...';
+  document.getElementById('analyzeBtn').disabled = true;
+  document.getElementById('analyzerGrade').textContent = '—';
+  document.getElementById('analyzerGrade').className = 'grade-badge grade-watching';
+
+  // Fetch live price
+  await fetchOneTicker(ticker);
+
+  document.getElementById('analyzerLoading').style.display = 'none';
+  document.getElementById('analyzeBtn').textContent = 'GO';
+  document.getElementById('analyzeBtn').disabled = false;
+
+  // Build stock data
+  const data = buildStock(ticker);
+  if (!data) {
+    document.getElementById('analyzerResult').innerHTML = `<div style="color:var(--red);font-family:'IBM Plex Mono',monospace;font-size:12px;padding:16px">No live price data for ${ticker}. Fetch may have failed — try again.</div>`;
+    return;
+  }
+  analyzerData = data;
+
+  const { price, rsi, volMult, gap, signals, score, grade, entry, stop, tp1, tp2, rr, isLive } = data;
+  const prevClose = priceCache[ticker]?.prevClose || price;
+  const chgPct = ((price - prevClose) / prevClose * 100).toFixed(2);
+  const chgDir = chgPct >= 0 ? '+' : '';
+
+  // ── Grade badge ──
+  document.getElementById('analyzerGrade').textContent = grade || 'PASS';
+  document.getElementById('analyzerGrade').className = 'grade-badge ' + (grade ? gradeClass(grade) : 'grade-watching');
+
+  // ── Verdict ──
+  const verdictEl = document.getElementById('analyzerVerdict');
+  const iconEl    = document.getElementById('verdictIcon');
+  const textEl    = document.getElementById('verdictText');
+  const subEl     = document.getElementById('verdictSub');
+
+  let verdictColor, icon, verdictMsg, subMsg;
+
+  if (grade === 'A+') {
+    verdictColor = 'var(--aplus)'; icon = '🟢';
+    verdictMsg = 'STRONG BUY — A+ SETUP';
+    subMsg = 'All conditions met · Price action confirmed · High conviction';
+  } else if (grade === 'A') {
+    verdictColor = 'var(--a)'; icon = '🔵';
+    verdictMsg = 'BUY — A SETUP';
+    subMsg = 'Strong conditions · PA trigger confirmed · Take normal size';
+  } else if (grade === 'B') {
+    verdictColor = 'var(--b)'; icon = '🟡';
+    verdictMsg = 'WAIT — B SETUP';
+    subMsg = 'Structure is good · No PA trigger yet · Watch for upgrade';
+  } else if (grade === 'WATCHING') {
+    verdictColor = 'var(--watching)'; icon = '👁';
+    verdictMsg = 'WATCHING — NOT YET';
+    subMsg = 'Early setup forming · Score too low to act · Keep on radar';
+  } else {
+    verdictColor = 'var(--text-dim)'; icon = '⛔';
+    verdictMsg = 'NO TRADE';
+    subMsg = `Score ${score}/16 — Does not meet any threshold · Skip it`;
+  }
+
+  verdictEl.style.borderColor = verdictColor;
+  verdictEl.style.background = verdictColor + '10';
+  iconEl.textContent = icon;
+  textEl.textContent = verdictMsg;
+  textEl.style.color = verdictColor;
+  subEl.textContent = subMsg;
+  subEl.style.color = verdictColor;
+
+  // ── Price ──
+  document.getElementById('analyzerPrice').textContent = `$${price.toFixed(2)}`;
+  const chgEl = document.getElementById('analyzerChange');
+  chgEl.textContent = `${chgDir}${chgPct}% today${isLive ? ' · LIVE' : ' · EST'}`;
+  chgEl.style.color = chgPct >= 0 ? 'var(--green)' : 'var(--red)';
+
+  // ── Score ──
+  const scoreEl = document.getElementById('analyzerScore');
+  scoreEl.textContent = `${score}`;
+  scoreEl.style.color = grade ? gradeColor(grade) : 'var(--text-dim)';
+
+  // ── Signal breakdown ──
+  const sigDefs = [
+    { key:'ema20',    label:'Price > 20 EMA',      pts:2 },
+    { key:'sma50',    label:'Price > 50 SMA',      pts:2 },
+    { key:'rsi',      label:`RSI in 50–65 range`,  pts:2 },
+    { key:'volume',   label:`Volume ${volMult.toFixed(1)}x avg`, pts:3 },
+    { key:'breakout', label:'Breakout at day high', pts:3 },
+    { key:'lux',      label:'LuxAlgo confluence',   pts:4 },
+  ];
+  document.getElementById('analyzerSignals').innerHTML = sigDefs.map(s => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:11px">
+      <div style="display:flex;align-items:center;gap:7px">
+        <div style="width:7px;height:7px;border-radius:50%;background:${signals[s.key]?'var(--green)':'var(--border)'};box-shadow:${signals[s.key]?'0 0 5px var(--green)':'none'}"></div>
+        <span style="color:${signals[s.key]?'var(--text-primary)':'var(--text-dim)'}">${s.label}</span>
+      </div>
+      <span style="color:${signals[s.key]?'var(--gold)':'var(--text-dim)'}">
+        ${signals[s.key]?'+'+s.pts+'pts':'—'}
+      </span>
+    </div>`).join('');
+
+  // ── Entry levels ──
+  const rrColor = parseFloat(rr)>=2.5?'var(--green)':parseFloat(rr)>=1.5?'var(--gold)':'var(--red)';
+  document.getElementById('analyzerLevels').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px;font-size:11px">
+      <div><span style="color:var(--text-dim)">ENTRY</span> <span style="color:var(--cyan);font-weight:600">$${entry.toFixed(2)}</span></div>
+      <div><span style="color:var(--text-dim)">STOP</span>  <span style="color:var(--red);font-weight:600">$${stop.toFixed(2)}</span></div>
+      <div><span style="color:var(--text-dim)">TP1</span>   <span style="color:var(--green);font-weight:600">$${tp1.toFixed(2)}</span></div>
+      <div><span style="color:var(--text-dim)">TP2</span>   <span style="color:var(--aplus);font-weight:600">$${tp2.toFixed(2)}</span></div>
+      <div style="grid-column:span 2"><span style="color:var(--text-dim)">R:R</span> <span style="color:${rrColor};font-weight:700">${rr}x</span>
+        ${parseFloat(rr)<1.5?'<span style="color:var(--red);font-size:10px"> ⚠ Below 1.5x gate</span>':''}</div>
+    </div>`;
+
+  // ── Reason ──
+  const reasons = [];
+  const time = new Date();
+  const h = time.getHours(), m = time.getMinutes(), tot = h*60+m;
+  if (signals.ema20) reasons.push('✓ Trending above 20 EMA');
+  if (signals.sma50) reasons.push('✓ Holding above 50 SMA');
+  if (signals.rsi)   reasons.push(`✓ RSI in optimal 50–65 momentum zone`);
+  if (signals.volume) reasons.push(`✓ Volume elevated at ${volMult.toFixed(1)}x average`);
+  if (signals.breakout) reasons.push('✓ Breaking out at day high');
+  if (signals.lux)   reasons.push('✓ LuxAlgo confluence active');
+  if (!signals.ema20) reasons.push('✗ Price below 20 EMA — trend not confirmed');
+  if (!signals.sma50) reasons.push('✗ Price below 50 SMA — weak structure');
+  if (!signals.rsi)   reasons.push(`✗ RSI outside 50–65 range`);
+  if (!signals.volume) reasons.push(`✗ Volume only ${volMult.toFixed(1)}x — needs 1.5x minimum`);
+  if (!signals.breakout) reasons.push('✗ Not breaking out — wait for trigger');
+  if (!signals.lux)   reasons.push('✗ No LuxAlgo signal — confirm on chart');
+  if (tot >= 630 && !document.getElementById('devMode').checked)
+    reasons.push('⚠ After 10:30 AM — pullback trades only');
+  document.getElementById('analyzerReason').innerHTML = reasons.join('<br>');
+
+  document.getElementById('analyzerResults').style.display = 'block';
+  log(`Analyzed ${ticker}: Score ${score}/16 → ${grade || 'NO GRADE'} (R:R ${rr}x)`);
+}
+
+function logAnalyzedAlert() {
+  if (!analyzerData || !analyzerData.grade) return;
+  addAlert(analyzerData);
+  switchTabById('alerts');
+  log(`${analyzerData.ticker} logged from Analyzer → ${analyzerData.grade}`);
+}
+
+// ════════════════════════════════════════════════
+// STATS
+// ════════════════════════════════════════════════
+function updateStats() {
+  const aplus = state.alerts.filter(a=>a.grade==='A+').length;
+  const a = state.alerts.filter(a=>a.grade==='A').length;
+  const watch = state.alerts.filter(a=>a.grade==='WATCHING').length;
+  document.getElementById('statAplus').textContent = aplus;
+  document.getElementById('statA').textContent = a;
+  document.getElementById('statWatch').textContent = watch;
+  document.getElementById('statScanned').textContent = state.scanned;
+  document.getElementById('statTrades').innerHTML = `${state.trades} <span style="font-size:14px;color:var(--text-secondary)">/ 2</span>`;
+  document.getElementById('tradeCount').value = state.trades;
+}
+
+// ════════════════════════════════════════════════
+// WATCHLIST
+// ════════════════════════════════════════════════
+function renderWatchlist() {
+  const el = document.getElementById('watchlistItems');
+  if (!state.watchlist.length) { el.innerHTML = '<div class="empty-state">No watchlist items</div>'; return; }
+  el.innerHTML = state.watchlist.map(t=>`
+    <div class="watchlist-item">
+      <div>
+        <div class="wl-ticker">${t}</div>
+        <div class="wl-sector">NDX100</div>
+      </div>
+      <button class="btn btn-danger" style="padding:3px 8px;font-size:10px" onclick="removeWatchlist('${t}')">✕</button>
+    </div>`).join('');
+}
+
+function addToWatchlist() {
+  const val = document.getElementById('wlAdd').value.trim().toUpperCase();
+  if (!val || state.watchlist.includes(val)) return;
+  state.watchlist.push(val);
+  document.getElementById('wlAdd').value = '';
+  renderWatchlist();
+}
+
+function removeWatchlist(t) {
+  state.watchlist = state.watchlist.filter(x=>x!==t);
+  renderWatchlist();
+}
+
+// ════════════════════════════════════════════════
+// TELEGRAM
+// ════════════════════════════════════════════════
+function saveTelegram() {
+  state.tgToken = document.getElementById('tgToken').value.trim();
+  state.tgChatId = document.getElementById('tgChatId').value.trim();
+  const el = document.getElementById('tgStatus');
+  const dot = document.getElementById('tgDot');
+  if (state.tgToken) {
+    el.className = 'tg-status-bar connected';
+    el.textContent = '● CONFIGURED — alerts active';
+    if (dot) { dot.className = 'tg-dot on'; }
+    log('Telegram configured ✓');
+  } else {
+    el.className = 'tg-status-bar disconnected';
+    el.textContent = '● Token required';
+    if (dot) { dot.className = 'tg-dot'; }
+  }
+  closeDropdown('tgDropdown', 'tgBtn');
+}
+
+async function testTelegram() {
+  if (!state.tgToken) { alert('Enter bot token first'); return; }
+  const msg = '🚀 Alpha Entry Scanner v13 — Test ping ✓';
+  await sendTgMsg(msg);
+}
+
+async function sendTelegram(alert) {
+  if (!state.tgToken) return;
+  const tgLevel = parseInt(document.getElementById('tgAlertLevel')?.value || '11');
+  const gradeScore = {'A+':14,'A':11,'B':8,'WATCHING':6}[alert.grade] || 0;
+  if (gradeScore < tgLevel) return; // below user's TG alert threshold
+  const emoji = alert.grade==='A+'?'🟢':alert.grade==='A'?'🔵':alert.grade==='B'?'🟡':'👁';
+  const msg = `${emoji} *${alert.grade} ALERT* — ${alert.ticker}\nScore: ${alert.score}/16\nEntry: $${alert.entry.toFixed(2)}\nTP1: $${alert.tp1.toFixed(2)} | TP2: $${alert.tp2.toFixed(2)}\nStop: $${alert.stop.toFixed(2)}\nR:R ${alert.rr}x\n[${alert.time}] — Alpha Entry v13`;
+  await sendTgMsg(msg);
+}
+
+async function sendTgMsg(msg) {
+  try {
+    const url = `https://api.telegram.org/bot${state.tgToken}/sendMessage`;
+    const res = await fetch(url, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ chat_id: state.tgChatId, text: msg, parse_mode:'Markdown' })
+    });
+    const data = await res.json();
+    if (data.ok) log('Telegram: sent ✓');
+    else log(`Telegram error: ${data.description}`);
+  } catch(e) { log(`Telegram failed: ${e.message}`); }
+}
+
+// ════════════════════════════════════════════════
+// DROPDOWN MODALS
+// ════════════════════════════════════════════════
+function toggleDropdown(id, btnId) {
+  const dd = document.getElementById(id);
+  const btn = document.getElementById(btnId);
+  const isOpen = dd.classList.contains('open');
+  // Close all dropdowns first
+  document.querySelectorAll('.hdr-dropdown').forEach(d => d.classList.remove('open'));
+  document.querySelectorAll('.hdr-btn').forEach(b => b.classList.remove('active'));
+  if (!isOpen) {
+    dd.classList.add('open');
+    btn.classList.add('active');
+  }
+}
+function closeDropdown(id, btnId) {
+  document.getElementById(id)?.classList.remove('open');
+  document.getElementById(btnId)?.classList.remove('active');
+}
+// Close dropdowns when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.hdr-btn') && !e.target.closest('.hdr-dropdown')) {
+    document.querySelectorAll('.hdr-dropdown').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.hdr-btn').forEach(b => b.classList.remove('active'));
+  }
+});
+
+// ════════════════════════════════════════════════
+// MISC
+// ════════════════════════════════════════════════
+function clearAlerts() {
+  state.alerts = [];
+  state.scanned = 0;
+  updateStats();
+  renderAlerts();
+  log('Alerts cleared');
+}
+
+function incrementTrade() {
+  if (state.trades < 2) { state.trades++; updateStats(); }
+  else alert('Max 2 trades reached for today.');
+}
+function resetTrades() { state.trades = 0; updateStats(); }
+
+function toggleDevMode() {
+  state.devMode = document.getElementById('devMode').checked;
+  log(state.devMode ? '⚠ DEV MODE ON — time gates bypassed' : 'DEV MODE OFF');
+}
+
+function log(msg) {
+  const el = document.getElementById('signalLog');
+  const time = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  el.innerHTML += `<span style="color:var(--text-dim)">[${time}]</span> ${msg}<br>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+}
+function switchTabById(name) {
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelector(`.tab-btn[onclick*="${name}"]`).classList.add('active');
+}
+
+// ════════════════════════════════════════════════
+// CLOCK + MARKET HOURS + PHASE
+// ════════════════════════════════════════════════
+function updateClock() {
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  document.getElementById('clock').textContent = timeStr;
+
+  const h = now.getHours(), m = now.getMinutes();
+  const total = h*60+m;
+  const day = now.getDay();
+  const isWeekday = day>=1&&day<=5;
+  const isOpen = isWeekday && total>=570 && total<960; // 9:30–4:00
+
+  const dot = document.getElementById('marketDot');
+  const lbl = document.getElementById('marketLabel');
+  dot.className = 'status-dot' + (isOpen?'':' closed');
+  lbl.textContent = isOpen ? 'MARKET OPEN' : 'MARKET CLOSED';
+
+  // Phase highlights
+  ['phase1','phase2','phase3','phase4'].forEach(p=>document.getElementById(p).classList.remove('active'));
+  if (total >= 510 && total < 575)       document.getElementById('phase1').classList.add('active'); // 8:30-9:35
+  else if (total >= 575 && total < 600)  document.getElementById('phase2').classList.add('active'); // 9:35-10:00
+  else if (total >= 600 && total < 630)  document.getElementById('phase3').classList.add('active'); // 10:00-10:30
+  else if (total >= 630 && total < 960)  document.getElementById('phase4').classList.add('active'); // 10:30+
+
+  // Time warning after 10:30
+  const warn = document.getElementById('timeWarning');
+  warn.classList.toggle('show', total >= 630 && isOpen && !state.devMode);
+}
+
+// ════════════════════════════════════════════════
+// MARKET PULSE — SPY / QQQ / VIX + GO/NO-GO
+// ════════════════════════════════════════════════
+async function fetchMarketPulse() {
+  const symbols = { SPY: 'mpSPY', QQQ: 'mpQQQ', '^VIX': 'mpVIX' };
+  const data = {};
+
+  await Promise.all(Object.keys(symbols).map(async sym => {
+    try {
+      // Step 1: daily 5d for prev close baseline
+      const urlD = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`;
+      const resD = await fetch(`https://corsproxy.io/?${encodeURIComponent(urlD)}`);
+      const jsonD = await resD.json();
+      const meta   = jsonD?.chart?.result?.[0]?.meta;
+      const closes = (jsonD?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[]).filter(Boolean);
+      const prev   = closes.length >= 2 ? closes[closes.length-2] : meta?.chartPreviousClose;
+
+      // Step 2: use last daily close as reliable base — regularMarketPrice can be stale/garbage
+      let price = closes.length > 0 ? closes[closes.length-1] : meta?.regularMarketPrice;
+      try {
+        const url1m = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1m&range=1d&includePrePost=true`;
+        const res1m = await fetch(`https://corsproxy.io/?${encodeURIComponent(url1m)}`);
+        const json1m = await res1m.json();
+        const c1m = (json1m?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[]).filter(Boolean);
+        if (c1m.length > 0) price = c1m[c1m.length - 1];
+        // if still no valid price, try meta from 1m call
+        if (!price || isNaN(price)) price = json1m?.chart?.result?.[0]?.meta?.regularMarketPrice;
+      } catch(e2) { /* keep daily price as fallback */ }
+      // final guard — if price is still invalid, skip this symbol
+      if (!price || isNaN(price)) { data[sym] = null; return; }
+
+      const chgPct = prev ? ((price - prev) / prev * 100) : 0;
+      data[sym] = { price, chgPct };
+    } catch(e) { data[sym] = null; }
+  }));
+
+  // ── Render chips ──
+  const fmt = (sym, label) => {
+    const d = data[sym];
+    if (!d) return;
+    const el = document.getElementById(symbols[sym]);
+    const isVix = sym === '^VIX';
+    // VIX: up = bad (red), down = good (green). SPY/QQQ: up = good
+    const chgColor = isVix
+      ? (d.chgPct > 2 ? 'var(--red)' : d.chgPct < -2 ? 'var(--aplus)' : 'var(--text-secondary)')
+      : (d.chgPct >= 0.3 ? 'var(--aplus)' : d.chgPct <= -0.3 ? 'var(--red)' : 'var(--text-secondary)');
+    const sign = d.chgPct >= 0 ? '+' : '';
+    const priceStr = isVix ? d.price?.toFixed(1) : d.price?.toFixed(2);
+    el.innerHTML = `<span style="color:var(--text-dim)">${label}</span> <span style="color:var(--text-secondary)">$${priceStr}</span> <span style="color:${chgColor};font-weight:600">${sign}${d.chgPct.toFixed(1)}%</span>`;
+  };
+
+  fmt('SPY', 'SPY');
+  fmt('QQQ', 'QQQ');
+  fmt('^VIX', 'VIX');
+
+  // ── GO / NO-GO logic ──
+  const spy  = data['SPY'];
+  const qqq  = data['QQQ'];
+  const vix  = data['^VIX'];
+  const goEl = document.getElementById('mpGONOGO');
+
+  if (!spy || !qqq || !vix) {
+    goEl.textContent = '—';
+    return;
+  }
+
+  const vixLevel  = vix.price;
+  const vixSpike  = vix.chgPct > 5;           // VIX spiking >5% = danger
+  const spyUp     = spy.chgPct >= 0;
+  const qqqUp     = qqq.chgPct >= 0;
+  const marketPos = spy.chgPct + qqq.chgPct;  // combined direction
+
+  let verdict, color, bg;
+
+  if (vixLevel > 30 || vixSpike) {
+    // High fear — no-go regardless
+    verdict = '✕ NO-GO';
+    color = 'var(--red)';
+    bg = 'rgba(255,59,48,0.12)';
+  } else if (vixLevel < 20 && spyUp && qqqUp && marketPos > 0.3) {
+    // VIX calm, both indices up — strong go
+    verdict = '▲ GO';
+    color = 'var(--aplus)';
+    bg = 'rgba(0,255,135,0.1)';
+  } else if (vixLevel < 25 && (spyUp || qqqUp) && marketPos > 0) {
+    // Mixed but leaning positive
+    verdict = '~ CAUTION';
+    color = 'var(--gold)';
+    bg = 'rgba(255,200,0,0.1)';
+  } else if (!spyUp && !qqqUp) {
+    // Both indices down
+    verdict = '▼ NO-GO';
+    color = 'var(--red)';
+    bg = 'rgba(255,59,48,0.12)';
+  } else {
+    verdict = '~ CAUTION';
+    color = 'var(--gold)';
+    bg = 'rgba(255,200,0,0.1)';
+  }
+
+  goEl.textContent = verdict;
+  goEl.style.color = color;
+  goEl.style.background = bg;
+  goEl.style.borderColor = color;
+
+  log(`Market pulse: SPY ${spy.chgPct.toFixed(1)}% QQQ ${qqq.chgPct.toFixed(1)}% VIX ${vix.price.toFixed(1)} (${vix.chgPct.toFixed(1)}%) → ${verdict}`);
+  const rtEl = document.getElementById('mpRefreshTime');
+  if (rtEl) {
+    const now = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true,timeZone:'America/New_York'});
+    rtEl.textContent = `refreshed ${now} · auto every 5 min`;
+  }
+}
+
+// ════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════
+setInterval(updateClock, 1000);
+updateClock();
+renderWatchlist();
+renderCustomTickers();
+updateStats();
+log('Alpha Entry Scanner v13 initialized');
+log('Scoring: EMA(+2) SMA(+2) RSI(+2) VOL(+3) BREAKOUT(+3) LUX(+4) = 16 max');
+log('Thresholds: A+(≥14+PA) A(≥11+PA) B(≥8) WATCHING(≥6)');
+loadNDX100();
+loadCustomTickersFromStorage();
+updateTickerCount();
+fetchMarketPulse();
+// Refresh market pulse every 5 minutes
+setInterval(fetchMarketPulse, 5 * 60 * 1000);
+
+// ── AUTO-FETCH GAPPERS ONCE ON STARTUP (background) ──
+setTimeout(() => {
+  log('⟳ Auto-fetching NDX100 top gappers in background...');
+  state.gappers = null;
+  fetchTopGappers(false).then(() => {
+    if (document.getElementById('sectorFilter').value !== 'GAPPERS') {
+      const count = (state.gappers || []).length;
+      log(`✓ Gappers ready (${count} found) — select 🚀 TOP GAPPERS in dropdown to scan them`);
+    }
+  });
+}, 2000);
+</script>
+</body>
+</html>
