@@ -1106,8 +1106,7 @@ async function fetchTopGappers(forceRefresh = false) {
       if (!isRegularSession()) {
         try {
           const url1m = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d&includePrePost=true`;
-          const res1m = await fetch(`https://corsproxy.io/?${encodeURIComponent(url1m)}`);
-          const d1m = await res1m.json();
+          const d1m = await proxyFetch(url1m);
           const c1m = (d1m?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
           if (c1m.length > 0) price = c1m[c1m.length - 1];
         } catch(e2) { /* keep daily price */ }
@@ -1245,8 +1244,7 @@ async function fetchOneTicker(ticker) {
   try {
     // ── Step 1: Daily candles (1mo) for EMA20, RSI14, SMA50, avg volume ──
     const urlDaily = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1mo`;
-    const resDaily = await fetch(`https://corsproxy.io/?${encodeURIComponent(urlDaily)}`);
-    const dataDaily = await resDaily.json();
+    const dataDaily = await proxyFetch(urlDaily);
     const resultDaily = dataDaily?.chart?.result?.[0];
     if (!resultDaily) return;
 
@@ -1295,8 +1293,7 @@ async function fetchOneTicker(ticker) {
     if (!isRegularSession()) {
       try {
         const url1m = `https://query2.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1m&range=1d&includePrePost=true`;
-        const res1m = await fetch(`https://corsproxy.io/?${encodeURIComponent(url1m)}`);
-        const data1m = await res1m.json();
+        const data1m = await proxyFetch(url1m);
         const result1m = data1m?.chart?.result?.[0];
         const q1m = result1m?.indicators?.quote?.[0] || {};
         const closes1m = (q1m.close || []).filter(v => v != null);
@@ -2122,6 +2119,45 @@ function updateClock() {
 // ════════════════════════════════════════════════
 // MARKET PULSE — SPY / QQQ / VIX + GO/NO-GO
 // ════════════════════════════════════════════════
+
+// ── Yahoo fetch via Netlify function (server-side, no CORS) ──
+function yahooToNetlify(url) {
+  try {
+    const u = new URL(url);
+    const sym      = u.pathname.split('/').pop();
+    const interval = u.searchParams.get('interval') || '1d';
+    const range    = u.searchParams.get('range')    || '5d';
+    const prepost  = u.searchParams.get('includePrePost') || 'false';
+    return `/.netlify/functions/yahoo?sym=${encodeURIComponent(sym)}&interval=${interval}&range=${range}&includePrePost=${prepost}`;
+  } catch(e) { return null; }
+}
+
+const FALLBACK_PROXIES = [
+  url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
+
+async function proxyFetch(url, asJson = true) {
+  // 1. Try Netlify serverless function first (most reliable)
+  const netlifyUrl = yahooToNetlify(url);
+  if (netlifyUrl) {
+    try {
+      const res = await fetch(netlifyUrl, { signal: AbortSignal.timeout(8000) });
+      if (res.ok) return asJson ? await res.json() : await res.text();
+    } catch(e) {}
+  }
+  // 2. Fallback to CORS proxies
+  let lastErr;
+  for (const proxy of FALLBACK_PROXIES) {
+    try {
+      const res = await fetch(proxy(url), { signal: AbortSignal.timeout(8000) });
+      if (!res.ok) { lastErr = `HTTP ${res.status}`; continue; }
+      return asJson ? await res.json() : await res.text();
+    } catch(e) { lastErr = e.message; }
+  }
+  throw new Error(`All fetches failed: ${lastErr}`);
+}
+// ─────────────────────────────────────────────────────
 async function fetchMarketPulse() {
   const symbols = { SPY: 'mpSPY', QQQ: 'mpQQQ', '^VIX': 'mpVIX' };
   const data = {};
@@ -2130,8 +2166,7 @@ async function fetchMarketPulse() {
     try {
       // Step 1: daily 5d for prev close baseline
       const urlD = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`;
-      const resD = await fetch(`https://corsproxy.io/?${encodeURIComponent(urlD)}`);
-      const jsonD = await resD.json();
+      const jsonD = await proxyFetch(urlD);
       const meta   = jsonD?.chart?.result?.[0]?.meta;
       const closes = (jsonD?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[]).filter(Boolean);
       const prev   = closes.length >= 2 ? closes[closes.length-2] : meta?.chartPreviousClose;
@@ -2140,8 +2175,7 @@ async function fetchMarketPulse() {
       let price = closes.length > 0 ? closes[closes.length-1] : meta?.regularMarketPrice;
       try {
         const url1m = `https://query2.finance.yahoo.com/v8/finance/chart/${sym}?interval=1m&range=1d&includePrePost=true`;
-        const res1m = await fetch(`https://corsproxy.io/?${encodeURIComponent(url1m)}`);
-        const json1m = await res1m.json();
+        const json1m = await proxyFetch(url1m);
         const c1m = (json1m?.chart?.result?.[0]?.indicators?.quote?.[0]?.close||[]).filter(Boolean);
         if (c1m.length > 0) price = c1m[c1m.length - 1];
         // if still no valid price, try meta from 1m call
