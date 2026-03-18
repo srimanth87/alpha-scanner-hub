@@ -1161,8 +1161,11 @@ async function fetchYahooCrumb(){
 }
 
 function buildYhUrl(sym, interval, params){
-  const base = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=${interval}&${params}`;
-  return YH_CRUMB ? `${base}&crumb=${encodeURIComponent(YH_CRUMB)}` : base;
+  // Range-based URLs — no crumb/cookie needed, works reliably on Netlify HTTPS
+  if(interval === '1d') return `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=6mo`;
+  if(interval === '5m') return `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=5m&range=1d`;
+  if(interval === '1m') return `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1m&range=1d&includePrePost=true`;
+  return `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=${interval}&range=1d`;
 }
 
 function extractJSON(txt){
@@ -1585,7 +1588,7 @@ let monitorTimer=null, monitorActive=false, monitorCountdown=180, monCountTimer=
 async function runScan(isSilent=false){
   if(!isSilent){
     cache1d={}; cache5m={}; ALL_RESULTS=[];
-    YH_CRUMB = null; // force fresh crumb on each full scan
+    // YH_CRUMB = null; — crumb disabled, using range-based URLs
     document.getElementById('log').innerHTML='';
     document.getElementById('log').className='log';
     document.getElementById('emptyState').style.display='block';
@@ -1603,7 +1606,7 @@ async function runScan(isSilent=false){
 
   // Fetch Yahoo crumb first — required for all data requests
   logTo('► Fetching Yahoo Finance auth token…','linfo');
-  await fetchYahooCrumb();
+  // fetchYahooCrumb() disabled — using range-based URLs instead
 
   logTo('► Checking market conditions (QQQ / SPY / VIX)…','linfo');
   const market=await checkMarket();
